@@ -20,7 +20,9 @@ pip3 install -r requirements.txt
 ```
 
 ## Files Explained 🗂️
-
+- `connect.sh`: this is a bash script written to establish a connection with the PostgreSQL database using environment variables loaded from a .env file.
+- `reset.sh`: this is a bash utilises script environment variables to reset the the PostgreSQL database by dropping existing tables if they exist and recreating the,.
+- `schema.sql`: this SQL file that defines the database schema and creates the necessary tables. It also seeds the data_source table with predefined known data sources and defines relationships between tables.
 
 ## Secrets Management 🕵🏽‍♂️
 Before running the script, you need to set up your AWS credentials. Create a new file called `.env` in the `pipeline` directory and add the following lines, with your actual AWS keys and database details:
