@@ -44,7 +44,7 @@
 
 #### ERD Diagram
 
-![ERD Diagram]()
+![ERD Diagram](/images/ERD-diagram.png)
 
 #### Dashboard Wireframe
 
