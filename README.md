@@ -1,3 +1,6 @@
+![Pylint Score](.github/badges/pylint.svg) 
+![Passing Tests](.github/badges/test.svg)
+
 # Trend Getter
 ## A tool that allows users to select topics/tags on key sites (Google Trends, BlueSky) and monitor their growth/interest over time.
 
