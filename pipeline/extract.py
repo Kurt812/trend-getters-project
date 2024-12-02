@@ -47,17 +47,17 @@ def extract_text_from_bytes(raw: bytes) -> str:
 def get_firehose_data(message: bytes, topics: list[str],
                       csv_writer: csv.writer, csvfile: csv.writer) -> None:
     """Handles incoming messages, parses data, and writes to a CSV file based on dynamic topics."""
-    commit = parse_subscribe_repos_message(message)
-    if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
+    repo_commit = parse_subscribe_repos_message(message)
+    if not isinstance(repo_commit, models.ComAtprotoSyncSubscribeRepos.Commit):
         return
-    car = CAR.from_bytes(commit.blocks)
-    for op in commit.ops:
-        if op.action in ["create"] and op.cid:
-            raw = car.blocks.get(op.cid)
-            cooked = get_or_create(raw, strict=False)
+    car_file = CAR.from_bytes(repo_commit.blocks)
+    for operation in repo_commit.ops:
+        if operation.action in ["create"] and operation.cid:
+            raw_bytes = car_file.blocks.get(operation.cid)
+            processed_post = get_or_create(raw_bytes, strict=False)
 
-            if cooked.py_type == "app.bsky.feed.post":
-                firehose_text = extract_text_from_bytes(raw)
+            if processed_post.py_type == "app.bsky.feed.post":
+                firehose_text = extract_text_from_bytes(raw_bytes)
 
                 for topic in topics:
                     if topic in firehose_text:
