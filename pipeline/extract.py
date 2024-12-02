@@ -1,9 +1,12 @@
-from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos_message
+import csv
 import ssl
 import certifi
+import json
+import re
+
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
-import json
+from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos_message
 
 
 class JSONExtra(json.JSONEncoder):
@@ -11,17 +14,36 @@ class JSONExtra(json.JSONEncoder):
 
     def default(self, obj: bytes):
         try:
-            result = json.JSONEncoder.default(self, obj)
-            return result
+            return json.JSONEncoder.default(self, obj)
         except:
             return repr(obj)
 
 
-def get_firehose_data(message) -> list[str]:
-    """"Function handles incoming messages from the BlueSky firehose, parses the raw data 
-    into json objects and returns the message posted."""
-    topics = ['building', 'lake']
+def format_text(text: str) -> str:
+    """Removes extra lines and whitespaces from text"""
+    # Remove consecutive empty lines
+    text = re.sub(r'\n\s*\n', '\n', text)
 
+    text = text.strip()
+    # Replace multiple spaces with a single space
+    text = re.sub(r'\s+', ' ', text)
+
+    return text
+
+
+def extract_text_from_bytes(raw: bytes) -> str:
+    """Extracts text from a raw Bluesky post"""
+    try:
+        json_data = json.dumps(raw, cls=JSONExtra, indent=2)
+        parsed_json = json.loads(json_data)
+        text = parsed_json.get('text')
+        return format_text(text)
+    except Exception:
+        return None
+
+
+def get_firehose_data(message: bytes, topics: list[str], csv_writer: csv.writer, csvfile: csv.writer) -> None:
+    """Handles incoming messages, parses data, and writes to a CSV file based on dynamic topics."""
     commit = parse_subscribe_repos_message(message)
     if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
         return
@@ -30,31 +52,46 @@ def get_firehose_data(message) -> list[str]:
         if op.action in ["create"] and op.cid:
             raw = car.blocks.get(op.cid)
             cooked = get_or_create(raw, strict=False)
+
             if cooked.py_type == "app.bsky.feed.post":
+                firehose_text = extract_text_from_bytes(raw)
 
-                json_data = json.dumps(raw, cls=JSONExtra, indent=2)
-                parsed_json = json.loads(json_data)
-                firehose_text = parsed_json['text']
-                if any(ext in firehose_text for ext in topics):
-                    print(firehose_text)
-                    print("="*100)
+                for topic in topics:
+                    if topic in firehose_text:
+
+                        csv_writer.writerow([firehose_text, topic])
+                        csvfile.flush()
+                        print(f"Written: {firehose_text}")
+                        print("="*100)
+                        break
 
 
-def bluesky_firehose_connection() -> None:
-    """Function to connect to BlueSky Firehose API using a secure SSL context to ensure
-    secure communication."""
-    # Create an SSL context that skips verification
+def bluesky_firehose_connection(topics: list[str]) -> None:
+    """Connect to BlueSky Firehose API and write data to CSV."""
     ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     client = FirehoseSubscribeReposClient()
-
-    # Modify the client connection to use this unverified context
-    # Assuming the library allows this (check docs)
     client.ssl_context = ssl_context
 
-    client.start(get_firehose_data)
+    with open('output.csv', mode='w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile, quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        header = ['text', 'keyword']
+
+        writer.writerow(header)
+
+        def start_firehose_extraction() -> None:
+            """Sarts the Bluesky firehose extraction"""
+            client.start(lambda message: get_firehose_data(
+                message, topics, writer, csvfile))
+
+        start_firehose_extraction()
+
+
+def main() -> None:
+    """Main function of the script to run Bluesky Firehouse extraction"""
+    topics = ['cloud', 'sky']
+    bluesky_firehose_connection(topics)
 
 
 if __name__ == "__main__":
-    topics = ['blue', 'red', 'chocolate']
-    bluesky_firehose_connection()
+    main()
