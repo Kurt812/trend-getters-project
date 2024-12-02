@@ -1,2 +1,4 @@
 atproto
 python-dotenv
+pytrends
+flask
