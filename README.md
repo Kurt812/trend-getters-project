@@ -1,5 +1,5 @@
 [![Deployment Workflow](https://github.com/Kurt812/trend-getters-project/actions/workflows/development.yml/badge.svg)](https://github.com/Kurt812/trend-getters-project/actions/workflows/development.yml)
-![Pylint Score](../.github/badges/pylint.svg) ![Passing Tests](../.github/badges/test.svg)
+![Pylint Score](.github/badges/pylint.svg) ![Passing Tests](.github/badges/test.svg)
 # Trend Getter
 ## A tool that allows users to select topics/tags on key sites (Google Trends, BlueSky) and monitor their growth/interest over time.
 
