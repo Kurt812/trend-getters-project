@@ -28,6 +28,12 @@ variable "db_port" {
   sensitive = true
 }
 
+variable "db_host" {
+  description = "The database endpoint"
+  type        = string
+  sensitive = true
+}
+
 variable "db_instance_class" {
   description = "The instance type for the RDS instance"
   type        = string
