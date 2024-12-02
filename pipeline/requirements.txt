@@ -1,4 +1,3 @@
+atproto_firehose
 atproto
-python-dotenv
-pytrends
-flask
+certifi
