@@ -1,1 +1,1 @@
-Trend Setters Project.
+Trend Getters Project.
