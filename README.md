@@ -1,5 +1,3 @@
-[![Deployment Workflow](https://github.com/Kurt812/trend-getters-project/actions/workflows/development.yml/badge.svg)](https://github.com/Kurt812/trend-getters-project/actions/workflows/development.yml)
-
 ![Pylint Score](.github/badges/pylint.svg) 
 ![Passing Tests](.github/badges/test.svg)
 
