@@ -1,8 +1,10 @@
+"""Extract script to connect to Bluesky Firehose and extract relevant data given topics"""
+
 import csv
 import ssl
-import certifi
 import json
 import re
+import certifi
 
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
@@ -15,7 +17,7 @@ class JSONExtra(json.JSONEncoder):
     def default(self, obj: bytes):
         try:
             return json.JSONEncoder.default(self, obj)
-        except:
+        except (TypeError, ValueError, KeyError):
             return repr(obj)
 
 
@@ -38,11 +40,12 @@ def extract_text_from_bytes(raw: bytes) -> str:
         parsed_json = json.loads(json_data)
         text = parsed_json.get('text')
         return format_text(text)
-    except Exception:
+    except (TypeError, AttributeError):
         return None
 
 
-def get_firehose_data(message: bytes, topics: list[str], csv_writer: csv.writer, csvfile: csv.writer) -> None:
+def get_firehose_data(message: bytes, topics: list[str],
+                      csv_writer: csv.writer, csvfile: csv.writer) -> None:
     """Handles incoming messages, parses data, and writes to a CSV file based on dynamic topics."""
     commit = parse_subscribe_repos_message(message)
     if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
@@ -66,7 +69,7 @@ def get_firehose_data(message: bytes, topics: list[str], csv_writer: csv.writer,
                         break
 
 
-def bluesky_firehose_connection(topics: list[str]) -> None:
+def connect_and_write(topics: list[str]) -> None:
     """Connect to BlueSky Firehose API and write data to CSV."""
     ssl_context = ssl.create_default_context(cafile=certifi.where())
 
@@ -90,7 +93,7 @@ def bluesky_firehose_connection(topics: list[str]) -> None:
 def main() -> None:
     """Main function of the script to run Bluesky Firehouse extraction"""
     topics = ['cloud', 'sky']
-    bluesky_firehose_connection(topics)
+    connect_and_write(topics)
 
 
 if __name__ == "__main__":
