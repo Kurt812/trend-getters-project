@@ -43,7 +43,7 @@
 
 #### Architecture Diagram
 
-![Architecture Diagram]()
+![Architecture Diagram](/images/architecture_diagram.png)
 
 #### ERD Diagram
 
@@ -51,7 +51,7 @@
 
 #### Dashboard Wireframe
 
-![Dashboard Wireframe]()
+![Dashboard Wireframe](/images/dashboard_wireframe.png)
 
 ### Built With
  [![Python][Python.com]][Python-url]
