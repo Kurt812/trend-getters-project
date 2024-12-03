@@ -1,13 +1,15 @@
 """Extract script to connect to Bluesky Firehose and extract relevant data given topics"""
 
+# pylint: disable=W1203
+
 import csv
 import ssl
 import json
 import re
-import certifi
 import logging
 import os
 from datetime import datetime
+import certifi
 
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
@@ -31,7 +33,7 @@ class JSONExtra(json.JSONEncoder):
     def default(self, obj: bytes):
         try:
             return super().default(obj)
-        except (TypeError, ValueError, KeyError) as e:
+        except (TypeError, ValueError, KeyError):
             return repr(obj)
 
 
