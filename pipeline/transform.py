@@ -72,7 +72,6 @@ def ensure_keywords_in_db(keywords: list, cursor, connection):
     return keyword_map
 
 
-# also want to match to topic_id?
 def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> pd.DataFrame:
     """Assign keyword_id to rows in the DataFrame based on matching keywords in content."""
 
