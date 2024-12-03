@@ -7,40 +7,32 @@ from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
-# Constants
 API_ENDPOINT = ENV["API_ENDPOINT"]
-DB_CONFIG = {
-    "user": ENV["DB_USERNAME"],
-    "password": ENV["DB_PASSWORD"],
-    "host": ENV["DB_HOST"],
-    "port": ENV["DB_PORT"],
-    "database": ENV["DB_NAME"],
-    "schema": ENV["SCHEMA_NAME"]
-}
 
 
-def get_db_connection():
-    """Establish and return a database connection."""
+def get_connection():
+    """Establish and return a database connection"""
     return psycopg2.connect(
-        user=DB_CONFIG["user"],
-        password=DB_CONFIG["password"],
-        host=DB_CONFIG["host"],
-        port=DB_CONFIG["port"],
-        database=DB_CONFIG["database"]
+        user=ENV["DB_USERNAME"],
+        password=ENV["DB_PASSWORD"],
+        host=ENV["DB_HOST"],
+        port=ENV["DB_PORT"],
+        database=ENV["DB_NAME"]
     )
 
 
 def execute_query(query, params=None, fetch_one=False):
     """Execute a query and return results if applicable"""
     try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(f"SET SEARCH_PATH TO %s;",
-                               (DB_CONFIG["schema"],))
-                cursor.execute(query, params)
-                if fetch_one:
-                    return cursor.fetchone()
-                conn.commit()
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SET SEARCH_PATH TO %s;",
+                       (ENV["SCHEMA_NAME"],))
+        cursor.execute(query, params)
+        if fetch_one:
+            return cursor.fetchone()
+        conn.commit()
+        conn.close()
     except psycopg2.DatabaseError as e:
         st.error(f"Database error: {e}")
         return None
@@ -73,7 +65,6 @@ def submit_topic(data):
         st.error(f"Failed to connect to the API. Error: {e}")
 
 
-# Streamlit UI
 st.title("Trend Getter")
 st.write("Submit your details to track trends.")
 
