@@ -11,7 +11,6 @@ import boto3
 from boto3 import client
 from dotenv import load_dotenv
 from psycopg2.extensions import connection
-
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
@@ -48,7 +47,6 @@ def format_text(text: str) -> str:
     text = text.strip()
     # Replace multiple spaces with a single space
     text = re.sub(r'\s+', ' ', text)
-
     return text
 
 
@@ -60,7 +58,7 @@ def extract_text_from_bytes(raw: bytes) -> str:
         text = parsed_json.get('text')
         return format_text(text)
     except (TypeError, AttributeError) as e:
-        logging.error(f"Error extracting text: {e}")
+        logging.error("Error extracting text: %s", e)
         return None
 
 
@@ -79,7 +77,7 @@ def get_firehose_data(message: bytes) -> None:
                 firehose_text = extract_text_from_bytes(raw_bytes)
                 if not firehose_text:
                     continue
-                logging.info(f'Extracted text: {firehose_text}')
+                logging.info('Extracted text: %s', firehose_text)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
                 s3_key = f"{S3_OBJECT_PREFIX}{timestamp}.txt"
 
@@ -88,16 +86,16 @@ def get_firehose_data(message: bytes) -> None:
 
 def connect_and_upload() -> None:
     """Connect to BlueSky Firehose API and starts extracting from firehose."""
-    logging.info(f"Starting Bluesky Firehose extraction")
+    logging.info("Starting Bluesky Firehose extraction")
 
     ssl_context = ssl.create_default_context(cafile=certifi.where())
 
-    client = FirehoseSubscribeReposClient()
-    client.ssl_context = ssl_context
+    firehose_client = FirehoseSubscribeReposClient()
+    firehose_client.ssl_context = ssl_context
 
     def start_firehose_extraction() -> None:
         """Starts the Bluesky firehose extraction"""
-        client.start(lambda message: get_firehose_data(message))
+        firehose_client.start(lambda message: get_firehose_data(message))
 
     start_firehose_extraction()
 
@@ -107,11 +105,11 @@ def upload_to_s3(content: str, key: str) -> None:
     try:
         s3_client = s3_connection()
         s3_client.put_object(Bucket=S3_BUCKET_NAME, Key=key, Body=content)
-        logging.info(f"Uploaded to S3: {key}")
+        logging.info("Uploaded to S3: %s", key)
     except (NoCredentialsError, PartialCredentialsError) as e:
-        logging.error(f"S3 credentials error: {e}")
+        logging.error("S3 credentials error: %s", e)
     except Exception as e:
-        logging.error(f"Error uploading to S3: {e}")
+        logging.error("Error uploading to S3: %s", e)
 
 
 def main():

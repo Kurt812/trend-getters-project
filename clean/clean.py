@@ -1,12 +1,14 @@
+"""Cleans the database of old data"""
+
 import logging
 import os
-import boto3
 from datetime import datetime, timezone, timedelta
+import boto3
 from boto3 import client
 from dotenv import load_dotenv
 from psycopg2.extensions import connection
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -51,13 +53,12 @@ def lambda_handler(event, context):
             if age > timedelta(days=7):
                 s3_client.delete_object(Bucket=S3_BUCKET_NAME, Key=object_key)
                 deleted_files.append(object_key)
-                logging.info(f"Deleted old object: {object_key}")
+                logging.info("Deleted old object: %s", object_key)
             else:
-                logging.info(
-                    f"Object is within retention period: {object_key}")
+                logging.info("Object is within retention period: %s", object_key)
 
         return {"status": "Completed", "deleted_files": deleted_files}
 
     except Exception as e:
-        logging.error(f"Error during cleanup: {e}")
+        logging.error("Error during cleanup: %s", e)
         return {"status": "Failed", "error": str(e)}
