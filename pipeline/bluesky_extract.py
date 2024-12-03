@@ -61,7 +61,7 @@ def extract_text_from_bytes(raw: bytes) -> str:
 
 def get_firehose_data(message: bytes, topics: list[str],
                       csv_writer: csv.writer, csvfile: csv.writer) -> None:
-    """Handles incoming messages, parses data, and writes to a CSV file based on dynamic topics."""
+    """Handles incoming messages, parses data, and writes to a CSV file based on topics."""
     repo_commit = parse_subscribe_repos_message(message)
     if not isinstance(repo_commit, models.ComAtprotoSyncSubscribeRepos.Commit):
         return
