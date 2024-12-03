@@ -1,5 +1,5 @@
 """Test script for BlueSky extract python file."""
-
+# pylint: skip-file
 
 from unittest.mock import patch, MagicMock
 from freezegun import freeze_time
