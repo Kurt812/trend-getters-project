@@ -1,7 +1,9 @@
 """This script cleans the data, matches keyword ids and sentiment scores."""
 
+# pylint: disable=W0621
+# pylint: disable=E0401
+
 import logging
-import os
 import pandas as pd
 import psycopg2
 import psycopg2.extras
@@ -39,8 +41,8 @@ def get_cursor(config):
 def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
     """Removes any rows that don't include the keywords and removes duplicate rows."""
 
-    # filtered_bluesky = bluesky_data[bluesky_data['text'].str.contains(
-    #    r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
+    filtered_bluesky = bluesky_data[bluesky_data['text'].str.contains(
+        r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
     filtered_bluesky = bluesky_data[bluesky_data['keyword'].notnull()]
     filtered_bluesky = bluesky_data.drop_duplicates()
 
@@ -85,24 +87,21 @@ def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> p
     return cleaned_bluesky_data
 
 
-def add_sentiment_scores(df: pd.DataFrame) -> pd.DataFrame:
+def add_sentiment_scores(bluesky_data: pd.DataFrame) -> pd.DataFrame:
     """Find and add the sentiment scores of each message."""
     analyzer = SentimentIntensityAnalyzer()
 
-    df['sentiment_score'] = df['text'].apply(
+    bluesky_data['sentiment_score'] = bluesky_data['text'].apply(
         lambda text: analyzer.polarity_scores(text)['compound'])
 
-    return df
+    return bluesky_data
 
 
 def extract_keywords_from_csv(csv_file):
-    # Read the CSV file
-    df = pd.read_csv(csv_file)
+    """Extracts keywords from csv file"""
+    bluesky_data = pd.read_csv(csv_file)
 
-    # Extract unique keywords from the 'keyword' column
-    unique_keywords = df['keyword'].unique()
-
-    return unique_keywords
+    return bluesky_data['keyword'].unique()
 
 
 if __name__ == "__main__":
