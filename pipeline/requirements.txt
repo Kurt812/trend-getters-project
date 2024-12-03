@@ -1,7 +1,6 @@
 pandas
-psycopg2
+psycopg2-binary
 python-dotenv
 vaderSentiment
-atproto_firehose
 atproto
 certifi

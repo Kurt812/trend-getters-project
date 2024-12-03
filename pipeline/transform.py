@@ -14,17 +14,37 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 # Match mention to topic_id - will need to get topic_id from rds
 # Sentiment analysis
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+    ]
+)
 
 
-def clean_data(df: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
+def get_cursor(config):
+    """Importing the data into the database"""
+    conn = psycopg2.connect(
+        user=config["DB_USERNAME"],
+        password=config["DB_PASSWORD"],
+        host=config["DB_HOST"],
+        port=config["DB_PORT"],
+        database=config["DB_NAME"]
+    )
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    return cursor, conn
+
+
+def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
     """Removes any rows that don't include the keywords and removes duplicate rows."""
-    filtered_df = df[df['content'].str.contains(
-        r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
+    return bluesky_data, keywords
+    # filtered_bluesky = bluesky_data[bluesky_data['content'].str.contains(
+    #     r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
 
-    filtered_df = filtered_df.drop_duplicates()
+    # filtered_bluesky = filtered_bluesky.drop_duplicates()
 
-    return filtered_df
+    # return filtered_bluesky
 
 
 def ensure_keywords_in_db(keywords: list, cursor, connection):
@@ -51,20 +71,18 @@ def ensure_keywords_in_db(keywords: list, cursor, connection):
 
 
 # also want to match to topic_id?
-def keyword_matching(df: pd.DataFrame, keyword_map: dict) -> pd.DataFrame:
-    """
-    Assign keyword_id to rows in the DataFrame based on matching keywords in content.
-    """
+def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> pd.DataFrame:
+    """Assign keyword_id to rows in the DataFrame based on matching keywords in content."""
 
-    df['keyword_id'] = None
+    cleaned_bluesky_data['keyword_id'] = None
 
     # Loop through the keywords and assign keyword_id to matching rows
     for keyword, keyword_id in keyword_map.items():
-        mask = df['content'].str.contains(
+        mask = cleaned_bluesky_data['content'].str.contains(
             rf'\b{keyword}\b', case=False, na=False)
-        df.loc[mask, 'keyword_id'] = keyword_id
+        cleaned_bluesky_data.loc[mask, 'keyword_id'] = keyword_id
 
-    return df
+    return cleaned_bluesky_data
 
 
 def add_sentiment_scores(df: pd.DataFrame) -> pd.DataFrame:
@@ -77,30 +95,31 @@ def add_sentiment_scores(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_cursor(config):
-    """Importing the data into the database"""
-    conn = psycopg2.connect(
-        user=config["DATABASE_USERNAME"],
-        password=config["DATABASE_PASSWORD"],
-        host=config["DATABASE_IP"],
-        port=config["DATABASE_PORT"],
-        database=config["DATABASE_NAME"]
-    )
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    return cursor, conn
+def extract_keywords_from_csv(csv_file):
+    # Read the CSV file
+    df = pd.read_csv(csv_file)
+
+    # Extract unique keywords from the 'keyword' column
+    unique_keywords = df['keyword'].unique()
+
+    return unique_keywords
 
 
 if __name__ == "__main__":
     config = dotenv_values(".env")
-    print(config)
+
     logging.info("Connecting to the trends RDS")
     cursor, conn = get_cursor(config)
     logging.info("Loading raw data from test_content_data.csv")
-    content_dataframe = pd.read_csv("data/test_content_data.csv")
-    keywords = ["crypto", "space", "AI"]
-    print(content_dataframe.shape)
-    cleaned_dataframe = clean_data(content_dataframe, keywords)
-    keyword_map = ensure_keywords_in_db(keywords, cursor, conn)
-    matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
-    final_dataframe = add_sentiment_scores(matched_dataframe)
-    print(final_dataframe)
+    content_dataframe = pd.read_csv(
+        "bluesky_output_data/bluesky_output_20241203_110911.csv")
+    keywords = extract_keywords_from_csv(
+        "bluesky_output_data/bluesky_output_20241203_110911.csv")
+
+    print(clean_data(content_dataframe, keywords))
+    # cleaned_dataframe = clean_data(content_dataframe, keywords)
+    # keyword_map = ensure_keywords_in_db(keywords, cursor, conn)
+    # matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
+    # final_dataframe = add_sentiment_scores(matched_dataframe)
+
+    # print(final_dataframe)
