@@ -5,3 +5,4 @@ vaderSentiment
 atproto
 certifi
 flask
+boto3
