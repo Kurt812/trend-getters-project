@@ -8,20 +8,26 @@ load_dotenv()
 API_ENDPOINT = ENV["API_ENDPOINT"]
 
 st.title("Trend Getter")
-st.write("Submit a topic to track trends.")
+st.write("Submit a topic to track trends along with your details.")
 
 with st.form("topic_form"):
     topic_name = st.text_input("Enter the topic or keyword:")
-    print(topic_name)
     notification_threshold = st.number_input(
         "Set notification threshold (optional):", min_value=0, value=0)
+    user_name = st.text_input("Enter your name:")
+    phone_number = st.text_input("Enter your phone number:")
+    subscription_status = st.selectbox(
+        "Subscription Status:", ["enabled", "disabled"])
     submit_button = st.form_submit_button("Submit")
 
 if submit_button:
-    if topic_name.strip():
+    if topic_name.strip() and user_name.strip() and phone_number.strip():
         data = {
             "topic_name": topic_name.strip(),
             "notification_threshold": notification_threshold,
+            "user_name": user_name.strip(),
+            "phone_number": phone_number.strip(),
+            "subscription_status": subscription_status,
         }
 
         try:
@@ -34,4 +40,4 @@ if submit_button:
         except requests.exceptions.RequestException as e:
             st.error(f"Failed to connect to the API. Error: {e}")
     else:
-        st.warning("Please enter a valid topic.")
+        st.warning("Please enter all required fields.")
