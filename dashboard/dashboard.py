@@ -79,12 +79,14 @@ def user_verification():
                 "user_verified": True,
                 "phone_number": phone_number.strip(),
                 "user_first": user_first.strip(),
-                "user_last": user_last.strip()
+                "user_last": user_last.strip(),
+                "is_new_user": False
             })
             if check_phone_number(phone_number.strip()):
                 st.success("Phone number verified!")
             else:
                 insert_user(user_first, user_last, phone_number)
+                st.session_state["is_new_user"] = True
                 st.success("Phone number not found. Registering to database.")
             st.rerun()
         else:
@@ -93,7 +95,10 @@ def user_verification():
 
 def topic_submission():
     """UI for submitting a topic"""
-    st.write(f"Welcome back, {st.session_state['user_first']}!")
+    if not st.session_state.get("is_new_user", False):
+        st.write(f"Welcome back, {st.session_state['user_first']}!")
+    else:
+        st.write(f"Greetings, {st.session_state['user_first']}!")
 
     with st.form("topic_form"):
         topic_name = st.text_input("Enter the topic or keyword:")
