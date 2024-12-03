@@ -23,7 +23,7 @@ variable "db_password" {
 }
 
 variable "db_port" {
-  description = "The database password"
+  description = "The database port"
   type        = string
   sensitive = true
 }
@@ -39,3 +39,5 @@ variable "db_instance_class" {
   type        = string
   default     = "db.t3.micro"
 }
+
+
