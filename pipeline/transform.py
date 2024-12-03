@@ -10,12 +10,6 @@ from psycopg2.extensions import cursor as curs, connection as conn
 from dotenv import dotenv_values
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-
-# Load csv created by extract into relevant data structure e.g. pd.Dataframe
-# Datacleaning
-# Match mention to topic_id - will need to get topic_id from rds
-# Sentiment analysis
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
