@@ -91,10 +91,8 @@ def connect_and_write(topics: list[str]) -> None:
     """Connect to BlueSky Firehose API and write data to CSV."""
     logging.info(f"Starting Bluesky Firehose extraction for topics: {topics}")
 
-    # Ensure the output folder exists
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-    # Create a timestamped filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_filename = os.path.join(
         OUTPUT_FOLDER, f"bluesky_output_{timestamp}.csv")
