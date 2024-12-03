@@ -1,3 +1,7 @@
-atproto_firehose
+pandas
+psycopg2-binary
+python-dotenv
+vaderSentiment
 atproto
 certifi
+flask
