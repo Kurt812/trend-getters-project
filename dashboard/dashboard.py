@@ -65,13 +65,8 @@ def submit_topic(data):
         st.error(f"Failed to connect to the API. Error: {e}")
 
 
-st.title("Trend Getter")
-st.write("Submit your details to track trends.")
-
-if "user_verified" not in st.session_state:
-    st.session_state["user_verified"] = False
-
-if not st.session_state["user_verified"]:
+def user_verification():
+    """UI for verifying the user's phone number"""
     with st.form("user_form"):
         user_first = st.text_input("Enter your first name:")
         user_last = st.text_input("Enter your last name:")
@@ -94,7 +89,10 @@ if not st.session_state["user_verified"]:
             st.rerun()
         else:
             st.warning("Please enter both your name and phone number.")
-else:
+
+
+def topic_submission():
+    """UI for submitting a topic"""
     st.write(f"Welcome back, {st.session_state['user_first']}!")
 
     with st.form("topic_form"):
@@ -120,3 +118,21 @@ else:
             submit_topic(topic_data)
         else:
             st.warning("Please enter a valid topic.")
+
+
+def main():
+    """Main function to render the Streamlit app."""
+    st.title("Trend Getter")
+    st.write("Submit your details to track trends.")
+
+    if "user_verified" not in st.session_state:
+        st.session_state["user_verified"] = False
+
+    if not st.session_state["user_verified"]:
+        user_verification()
+    else:
+        topic_submission()
+
+
+if __name__ == "__main__":
+    main()
