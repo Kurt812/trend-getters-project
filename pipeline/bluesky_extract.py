@@ -5,10 +5,22 @@ import ssl
 import json
 import re
 import certifi
+import logging
 
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
 from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos_message
+
+HEADER = ['text', 'keyword']
+CSV_OUTPUT_FILE = "output.csv"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+    ]
+)
 
 
 class JSONExtra(json.JSONEncoder):
@@ -17,7 +29,7 @@ class JSONExtra(json.JSONEncoder):
     def default(self, obj: bytes):
         try:
             return json.JSONEncoder.default(self, obj)
-        except (TypeError, ValueError, KeyError):
+        except (TypeError, ValueError, KeyError) as e:
             return repr(obj)
 
 
@@ -40,7 +52,8 @@ def extract_text_from_bytes(raw: bytes) -> str:
         parsed_json = json.loads(json_data)
         text = parsed_json.get('text')
         return format_text(text)
-    except (TypeError, AttributeError):
+    except (TypeError, AttributeError) as e:
+        logging.error(f"Error extracting text: {e}")
         return None
 
 
@@ -56,31 +69,33 @@ def get_firehose_data(message: bytes, topics: list[str],
             raw_bytes = car_file.blocks.get(operation.cid)
             processed_post = get_or_create(raw_bytes, strict=False)
 
-            if processed_post.py_type == "app.bsky.feed.post":
+            if not processed_post.py_type is None and processed_post.py_type == "app.bsky.feed.post":
                 firehose_text = extract_text_from_bytes(raw_bytes)
 
-                for topic in topics:
-                    if topic in firehose_text:
+                for keyword in topics:
+                    if keyword in firehose_text:
 
-                        csv_writer.writerow([firehose_text, topic])
+                        csv_writer.writerow([firehose_text, keyword])
                         csvfile.flush()
-                        print(f"Written: {firehose_text}")
+                        logging.info(
+                            f"Written post containing keword :'{keyword}', post: {firehose_text}")
                         print("="*100)
                         break
 
 
 def connect_and_write(topics: list[str]) -> None:
     """Connect to BlueSky Firehose API and write data to CSV."""
+    logging.info(f"Starting Bluesky Firehose extraction for topics: {topics}")
     ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     client = FirehoseSubscribeReposClient()
     client.ssl_context = ssl_context
 
-    with open('output.csv', mode='w', newline='', encoding='utf-8') as csvfile:
+    with open(CSV_OUTPUT_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        header = ['text', 'keyword']
+        logging.info(f"Created CSV output file: {CSV_OUTPUT_FILE}")
 
-        writer.writerow(header)
+        writer.writerow(HEADER)
 
         def start_firehose_extraction() -> None:
             """Sarts the Bluesky firehose extraction"""
