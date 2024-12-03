@@ -107,11 +107,6 @@ def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     logging.info("Connecting to the trends RDS")
     connection = get_connection(env_values)
     cursor = get_cursor(connection)
-    # logging.info("Loading raw data from test_content_data.csv")
-    # content_dataframe = pd.read_csv(
-    #     "bluesky_output_data/bluesky_output_20241203_123034.csv")
-    # keywords_from_csv = extract_keywords_from_csv(
-    #     "bluesky_output_data/bluesky_output_20241203_123034.csv")
     keywords_from_dataframe = list(dataframe['keyword'])
 
     cleaned_dataframe = clean_data(dataframe, keywords_from_dataframe)
@@ -120,7 +115,7 @@ def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
     final_dataframe = add_sentiment_scores(matched_dataframe)
 
-    print(final_dataframe)
+    return final_dataframe
 
 
 if __name__ == "__main__":
