@@ -16,8 +16,7 @@ from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
 from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos_message
 
-S3_BUCKET_NAME = "trendgineers-raw-firehose-data"
-S3_OBJECT_PREFIX = "bluesky/"
+
 S3_CLIENT = boto3.client('s3')
 load_dotenv(".env")
 
@@ -79,7 +78,7 @@ def get_firehose_data(message: bytes) -> None:
                     continue
                 logging.info('Extracted text: %s', firehose_text)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-                s3_key = f"{S3_OBJECT_PREFIX}{timestamp}.txt"
+                s3_key = f"{os.environ.get("S3_OBJECT_PREFIX")}{timestamp}.txt"
 
                 upload_to_s3(firehose_text, s3_key)
 
@@ -104,7 +103,7 @@ def upload_to_s3(content: str, key: str) -> None:
     """Uploads text to S3 Bucket"""
     try:
         s3_client = s3_connection()
-        s3_client.put_object(Bucket=S3_BUCKET_NAME, Key=key, Body=content)
+        s3_client.put_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=key, Body=content)
         logging.info("Uploaded to S3: %s", key)
     except (NoCredentialsError, PartialCredentialsError) as e:
         logging.error("S3 credentials error: %s", e)

@@ -17,8 +17,6 @@ logging.basicConfig(
     ]
 )
 
-S3_BUCKET_NAME = "trendgineers-raw-firehose-data"
-S3_OBJECT_PREFIX = "bluesky/"
 S3_CLIENT = boto3.client('s3')
 DAY_LIMIT = 7
 load_dotenv(".env")
@@ -38,7 +36,7 @@ def lambda_handler(event, context):
         current_time = datetime.now(timezone.utc)
 
         response = s3_client.list_objects_v2(
-            Bucket=S3_BUCKET_NAME, Prefix=S3_OBJECT_PREFIX)
+            Bucket=os.environ.get("S3_BUCKET_NAME"), Prefix=os.environ.get("S3_OBJECT_PREFIX"))
 
         if 'Contents' not in response:
             logging.info("No objects found in the bucket.")
@@ -52,7 +50,7 @@ def lambda_handler(event, context):
             age = current_time - last_modified
 
             if age > timedelta(days=DAY_LIMIT):
-                s3_client.delete_object(Bucket=S3_BUCKET_NAME, Key=object_key)
+                s3_client.delete_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=object_key)
                 deleted_files.append(object_key)
                 logging.info("Deleted old object: %s", object_key)
             else:
