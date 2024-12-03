@@ -117,7 +117,7 @@ def connect_and_upload(topics: list[str]) -> None:
 def main() -> None:
     """Main function of the script to run Bluesky Firehouse extraction"""
     topics = ['cloud', 'sky']
-    connect_and_write(topics)
+    connect_and_upload(topics)
 
 
 if __name__ == "__main__":
