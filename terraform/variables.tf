@@ -34,6 +34,12 @@ variable "db_host" {
   sensitive = true
 }
 
+variable "db_schema" {
+  description = "The database schema"
+  type        = string
+  sensitive = true
+}
+
 variable "db_instance_class" {
   description = "The instance type for the RDS instance"
   type        = string
