@@ -1,12 +1,12 @@
 """This script cleans the data, matches keyword ids and sentiment scores."""
 
-# pylint: disable=W0621
 # pylint: disable=E0401
 
 import logging
 import pandas as pd
 import psycopg2
 import psycopg2.extras
+from psycopg2.extensions import cursor as curs, connection as conn
 from dotenv import dotenv_values
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -25,17 +25,20 @@ logging.basicConfig(
 )
 
 
-def get_cursor(config):
+def get_connection(config) -> conn:
     """Importing the data into the database"""
-    conn = psycopg2.connect(
+    return psycopg2.connect(
         user=config["DB_USERNAME"],
         password=config["DB_PASSWORD"],
         host=config["DB_HOST"],
         port=config["DB_PORT"],
         database=config["DB_NAME"]
     )
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    return cursor, conn
+
+
+def get_cursor(connection: conn) -> curs:
+    """Returns the a psycopg2 cursor"""
+    return connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 
 def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
@@ -103,20 +106,26 @@ def extract_keywords_from_csv(csv_file):
     return bluesky_data['keyword'].unique()
 
 
-if __name__ == "__main__":
-    config = dotenv_values(".env")
+def main():
+    """Main function to run transform.py"""
+    env_values = dotenv_values(".env")
 
     logging.info("Connecting to the trends RDS")
-    cursor, conn = get_cursor(config)
+    connection = get_connection(env_values)
+    cursor = get_cursor(connection)
     logging.info("Loading raw data from test_content_data.csv")
     content_dataframe = pd.read_csv(
-        "bluesky_output_data/bluesky_output_20241203_110911.csv")
-    keywords = extract_keywords_from_csv(
-        "bluesky_output_data/bluesky_output_20241203_110911.csv")
+        "bluesky_output_data/bluesky_output_20241203_123034.csv")
+    keywords_from_csv = extract_keywords_from_csv(
+        "bluesky_output_data/bluesky_output_20241203_123034.csv")
 
-    cleaned_dataframe = clean_data(content_dataframe, keywords)
-    keyword_map = ensure_keywords_in_db(keywords, cursor, conn)
+    cleaned_dataframe = clean_data(content_dataframe, keywords_from_csv)
+    keyword_map = ensure_keywords_in_db(keywords_from_csv, cursor, connection)
     matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
     final_dataframe = add_sentiment_scores(matched_dataframe)
 
     print(final_dataframe)
+
+
+if __name__ == "__main__":
+    main()
