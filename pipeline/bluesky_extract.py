@@ -6,13 +6,15 @@ import json
 import re
 import certifi
 import logging
+import os
+from datetime import datetime
 
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
 from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos_message
 
 HEADER = ['text', 'keyword']
-CSV_OUTPUT_FILE = "output.csv"
+OUTPUT_FOLDER = "bluesky_output_data"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,7 +30,7 @@ class JSONExtra(json.JSONEncoder):
 
     def default(self, obj: bytes):
         try:
-            return json.JSONEncoder.default(self, obj)
+            return super().default(obj)
         except (TypeError, ValueError, KeyError) as e:
             return repr(obj)
 
@@ -65,12 +67,14 @@ def get_firehose_data(message: bytes, topics: list[str],
         return
     car_file = CAR.from_bytes(repo_commit.blocks)
     for operation in repo_commit.ops:
-        if operation.action in ["create"] and operation.cid:
+        if operation.action == "create" and operation.cid:
             raw_bytes = car_file.blocks.get(operation.cid)
             processed_post = get_or_create(raw_bytes, strict=False)
 
             if not processed_post.py_type is None and processed_post.py_type == "app.bsky.feed.post":
                 firehose_text = extract_text_from_bytes(raw_bytes)
+                if not firehose_text:
+                    continue
 
                 for keyword in topics:
                     if keyword in firehose_text:
@@ -78,7 +82,7 @@ def get_firehose_data(message: bytes, topics: list[str],
                         csv_writer.writerow([firehose_text, keyword])
                         csvfile.flush()
                         logging.info(
-                            f"Written post containing keword :'{keyword}', post: {firehose_text}")
+                            f"Written post containing keyword: '{keyword}', post: {firehose_text}")
                         print("="*100)
                         break
 
@@ -86,19 +90,29 @@ def get_firehose_data(message: bytes, topics: list[str],
 def connect_and_write(topics: list[str]) -> None:
     """Connect to BlueSky Firehose API and write data to CSV."""
     logging.info(f"Starting Bluesky Firehose extraction for topics: {topics}")
+
+    # Ensure the output folder exists
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+    # Create a timestamped filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filename = os.path.join(
+        OUTPUT_FOLDER, f"bluesky_output_{timestamp}.csv")
+
+    logging.info(f"Saving CSV output to: {csv_filename}")
     ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     client = FirehoseSubscribeReposClient()
     client.ssl_context = ssl_context
 
-    with open(CSV_OUTPUT_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
+    with open(csv_filename, mode='w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        logging.info(f"Created CSV output file: {CSV_OUTPUT_FILE}")
+        logging.info(f"Created CSV output file: {csv_filename}")
 
         writer.writerow(HEADER)
 
         def start_firehose_extraction() -> None:
-            """Sarts the Bluesky firehose extraction"""
+            """Starts the Bluesky firehose extraction"""
             client.start(lambda message: get_firehose_data(
                 message, topics, writer, csvfile))
 
