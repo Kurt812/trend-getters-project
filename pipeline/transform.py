@@ -93,14 +93,14 @@ def add_sentiment_scores(bluesky_data: pd.DataFrame) -> pd.DataFrame:
     return bluesky_data
 
 
-def extract_keywords_from_csv(csv_file):
+def extract_keywords_from_csv(csv_file) -> pd.Series:
     """Extracts keywords from csv file"""
     bluesky_data = pd.read_csv(csv_file)
 
     return bluesky_data['keyword'].unique()
 
 
-def main():
+def main() -> None:
     """Main function to run transform.py"""
     env_values = dotenv_values(".env")
 
