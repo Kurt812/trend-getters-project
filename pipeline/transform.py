@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 
 
-def get_connection(config) -> conn:
+def get_connection(config: dotenv_values) -> conn:
     """Importing the data into the database"""
     return psycopg2.connect(
         user=config["DB_USERNAME"],
@@ -46,7 +46,7 @@ def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
     return filtered_bluesky
 
 
-def ensure_keywords_in_db(keywords: list, cursor, connection):
+def ensure_keywords_in_db(keywords: list, cursor: curs, connection: conn) -> dict:
     """Ensure all keywords are present in the database. Add missing keywords."""
     cursor.execute("SET search_path TO trendgineers;")
     cursor.execute("SELECT keyword, keywords_id FROM keywords")
