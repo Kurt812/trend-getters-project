@@ -50,6 +50,7 @@ def format_text(text: str) -> str:
 def extract_text_from_bytes(raw: bytes) -> str:
     """Extracts text from a raw Bluesky post"""
     try:
+        print(raw)
         json_data = json.dumps(raw, cls=JSONExtra, indent=2)
         parsed_json = json.loads(json_data)
         text = parsed_json.get('text')
