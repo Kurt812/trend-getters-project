@@ -1,3 +1,4 @@
 atproto_firehose
 atproto
 certifi
+freezegun
