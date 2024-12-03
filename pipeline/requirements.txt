@@ -2,3 +2,6 @@ pandas
 psycopg2
 python-dotenv
 vaderSentiment
+atproto_firehose
+atproto
+certifi
