@@ -45,6 +45,17 @@ def check_phone_number(phone_number):
     return result is not None
 
 
+def check_user(phone_number, first_name, last_name):
+    """Check if the user exists in the database and verify their name."""
+    query = """SELECT * FROM "user" 
+               WHERE phone_number = %s 
+               AND first_name = %s 
+               AND last_name = %s;"""
+    result = execute_query(
+        query, (phone_number, first_name, last_name), fetch_one=True)
+    return result is not None
+
+
 def insert_user(first_name, last_name, phone_number):
     """Insert a new user into the database"""
     query = """INSERT INTO "user" (first_name, last_name, phone_number) 
@@ -75,15 +86,25 @@ def user_verification():
 
     if submit_user_button:
         if user_first.strip() and user_last.strip() and phone_number.strip():
+            phone_number = phone_number.strip()
+            user_first = user_first.strip()
+            user_last = user_last.strip()
+
             st.session_state.update({
                 "user_verified": True,
-                "phone_number": phone_number.strip(),
-                "user_first": user_first.strip(),
-                "user_last": user_last.strip(),
+                "phone_number": phone_number,
+                "user_first": user_first,
+                "user_last": user_last,
                 "is_new_user": False
             })
             if check_phone_number(phone_number.strip()):
-                st.success("Phone number verified!")
+                if check_user(phone_number, user_first, user_last):
+                    st.success("Phone number and name verified!")
+                else:
+                    st.session_state["verification_error"] = (
+                        "The phone number exists, but the name does not match. Please try again."
+                    )
+                    st.session_state["user_verified"] = False
             else:
                 insert_user(user_first, user_last, phone_number)
                 st.session_state["is_new_user"] = True
@@ -91,6 +112,9 @@ def user_verification():
             st.rerun()
         else:
             st.warning("Please enter both your name and phone number.")
+
+    if "verification_error" in st.session_state and st.session_state["verification_error"]:
+        st.error(st.session_state["verification_error"])
 
 
 def topic_submission():
