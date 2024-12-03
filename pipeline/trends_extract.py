@@ -6,7 +6,7 @@ def initialize_trend_request():
     return TrendReq()
 
 
-def fetch_interest_over_time(pytrend, topics):
+def fetch_interest_over_time(pytrend: TrendReq, topics: list[str]):
     """Fetch and print interest over time for given topics."""
     pytrend.build_payload(kw_list=topics)
     print("Interest over time")
@@ -15,7 +15,7 @@ def fetch_interest_over_time(pytrend, topics):
     return interest_over_time_df
 
 
-def fetch_interest_by_region(pytrend, topics):
+def fetch_interest_by_region(pytrend: TrendReq, topics: list[str]):
     """Fetch and print interest by region for given topics."""
     pytrend.build_payload(kw_list=topics)
     print("Interest by region")
@@ -24,15 +24,15 @@ def fetch_interest_by_region(pytrend, topics):
     return interest_by_region_df
 
 
-def fetch_suggestions(pytrend, keyword):
+def fetch_suggestions(pytrend: TrendReq, keyword: str):
     """Fetch and print suggestions for a given keyword."""
-    print(f"Suggestions for {keyword}")
+    # print(f"Suggestions for {keyword}")
     suggestions_dict = pytrend.suggestions(keyword=keyword)
-    print(suggestions_dict)
+    # print(suggestions_dict)
     return suggestions_dict
 
 
-def fetch_multirange_interest(pytrend, topics, timeframes):
+def fetch_multirange_interest(pytrend: TrendReq, topics: list[str], timeframes: list[str]):
     """Fetch and print multirange interest over time for given topics and timeframes."""
     pytrend.build_payload(kw_list=topics, timeframe=timeframes)
     print(f"Interest of pizza and bagel from 2022-09-04 to 2022-09-10 ")
@@ -41,18 +41,16 @@ def fetch_multirange_interest(pytrend, topics, timeframes):
     return multirange_interest_over_time_df
 
 
-def main():
+def main(topics: list[str]) -> None:
     pytrend = initialize_trend_request()
 
-    # Single-topic analysis
-    topics = ['pizza']
     fetch_interest_over_time(pytrend, topics)
     print("")
     fetch_interest_by_region(pytrend, topics)
     print("")
-    fetch_suggestions(pytrend, keyword='pizza')
+    for keyword in topics:
+        fetch_suggestions(pytrend, keyword)
 
-    topics = ['pizza', 'bagel']
     timeframes = ['2022-09-04 2022-09-10', '2022-09-18 2022-09-24']
     fetch_multirange_interest(pytrend, topics, timeframes)
 

@@ -100,21 +100,23 @@ def extract_keywords_from_csv(csv_file) -> pd.Series:
     return bluesky_data['keyword'].unique()
 
 
-def main() -> None:
+def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     """Main function to run transform.py"""
     env_values = dotenv_values(".env")
 
     logging.info("Connecting to the trends RDS")
     connection = get_connection(env_values)
     cursor = get_cursor(connection)
-    logging.info("Loading raw data from test_content_data.csv")
-    content_dataframe = pd.read_csv(
-        "bluesky_output_data/bluesky_output_20241203_123034.csv")
-    keywords_from_csv = extract_keywords_from_csv(
-        "bluesky_output_data/bluesky_output_20241203_123034.csv")
+    # logging.info("Loading raw data from test_content_data.csv")
+    # content_dataframe = pd.read_csv(
+    #     "bluesky_output_data/bluesky_output_20241203_123034.csv")
+    # keywords_from_csv = extract_keywords_from_csv(
+    #     "bluesky_output_data/bluesky_output_20241203_123034.csv")
+    keywords_from_dataframe = list(dataframe['keyword'])
 
-    cleaned_dataframe = clean_data(content_dataframe, keywords_from_csv)
-    keyword_map = ensure_keywords_in_db(keywords_from_csv, cursor, connection)
+    cleaned_dataframe = clean_data(dataframe, keywords_from_dataframe)
+    keyword_map = ensure_keywords_in_db(
+        keywords_from_dataframe, cursor, connection)
     matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
     final_dataframe = add_sentiment_scores(matched_dataframe)
 
