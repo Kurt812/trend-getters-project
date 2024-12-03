@@ -20,6 +20,7 @@ logging.basicConfig(
 S3_BUCKET_NAME = "trendgineers-raw-firehose-data"
 S3_OBJECT_PREFIX = "bluesky/"
 S3_CLIENT = boto3.client('s3')
+DAY_LIMIT = 7
 load_dotenv(".env")
 
 
@@ -50,7 +51,7 @@ def lambda_handler(event, context):
 
             age = current_time - last_modified
 
-            if age > timedelta(days=7):
+            if age > timedelta(days=DAY_LIMIT):
                 s3_client.delete_object(Bucket=S3_BUCKET_NAME, Key=object_key)
                 deleted_files.append(object_key)
                 logging.info("Deleted old object: %s", object_key)
