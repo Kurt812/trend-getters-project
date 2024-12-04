@@ -98,24 +98,28 @@ These instructions are for **macOS only**.
       This will confirm that you are authenticated and have access to your AWS resources.
 
 ## Requirements 📋
-You must have a `.env` file containing:   
-| Variable         | Description                                      |
-|------------------|--------------------------------------------------|
-|       |     |
-
+Each directory has its own `.env` or secrets file. Please refer to the individual directory for the necessary secrets management.
 
    
 ## Folders Explained 📁
-These folders are found this repository:     
-- **[images](https://github.com/Kurt812/trend-getters-project/tree/main/images)**     
-   
-- **[dashboard](https://github.com/Kurt812/trend-getters-project/tree/main/dashboard)** 
+These folders are found this repository:    
+- **[clean](https://github.com/Kurt812/trend-getters-project/tree/main/clean)**
+This directory contains the code to clean the S3 bucket after a defined retention period, thus regulating the usage of AWS resources.
 
+- **[dashboard](https://github.com/Kurt812/trend-getters-project/tree/main/dashboard)** 
+This directory contains all code relating to the dashboard that users can use to track and submit topics to monitor their trends.
+
+- **[images](https://github.com/Kurt812/trend-getters-project/tree/main/images)**
+This directory contains all the images found in this repository including the Entity Relationship Diagram (ERD) and the architecture diagram.
+   
 - **[pipeline](https://github.com/Kurt812/trend-getters-project/tree/main/pipeline)**
+This directory implements a full Extract Transform Load (ETL) pipeline and contains the code needed to extract text related to user-defined keywords and topics, process and upload the data into an S3 and RDS instance.
 
 - **[terraform](https://github.com/Kurt812/trend-getters-project/tree/main/terraform)**  
+This directory contains all the infrastructure-as-code (IaC) setup using Terraform. It includes the configuration files to provision and manage cloud resources, required for the Trend Getter project. These resources are essential for setting up the cloud environment that supports the ETL pipeline and real-time dashboard.
   
-
+- **[upload](https://github.com/Kurt812/trend-getters-project/tree/main/upload)**
+This directory contains scripts for extracting data from the BlueSky firehose, processing it, and uploading the results to an S3 bucket for storage. This functionality is contained within a Docker image created using the dockerfile within the directory.
 
 ## Files Explained🗂️
 These files are found in this repository:
