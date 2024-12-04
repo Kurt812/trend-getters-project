@@ -7,4 +7,6 @@ vaderSentiment
 atproto
 certifi
 boto3
-certifi
+freezegun
+flask
+streamlit
