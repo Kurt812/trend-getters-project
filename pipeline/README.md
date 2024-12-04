@@ -20,6 +20,8 @@ pip3 install -r requirements.txt
 ```
 
 ## Files Explained 🗂️
+- `Dockerfile`: this docker file creates an image along with the required dependencies and files for the `api.py` file that can be accessed via port 5000.
+- `api.py
 - `connect.sh`: this is a bash script written to establish a connection with the PostgreSQL database using environment variables loaded from a .env file.
 - `reset.sh`: this is a bash utilises script environment variables to reset the the PostgreSQL database by dropping existing tables if they exist and recreating the,.
 - `schema.sql`: this SQL file that defines the database schema and creates the necessary tables. It also seeds the data_source table with predefined known data sources and defines relationships between tables.
