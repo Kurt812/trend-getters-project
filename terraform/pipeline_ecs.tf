@@ -43,6 +43,18 @@ resource "aws_iam_policy" "pipeline_ecs_service_rds_policy" {
         Resource : [
             "arn:aws:rds:eu-west-2:129033205317:db:c14-trend-getter-db"
         ]
+      },
+      # Allow ECS tasks to read from the specified S3 bucket
+      {
+        Effect   : "Allow",
+        Action   : [
+          "s3:GetObject",     
+          "s3:ListBucket"      
+        ],
+        Resource : [
+          "arn:aws:s3:::trendgineers-test-bucket", #"arn:aws:s3:::trendgineers-raw-firehose-data",      
+          "arn:aws:s3:::trendgineers-test-bucket/*", #"arn:aws:s3:::trendgineers-raw-firehose-data/*"     
+        ]
       }
     ]
   })
@@ -67,35 +79,32 @@ resource "aws_ecs_task_definition" "c14_trendgineers_pipeline" {
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "1024"
-  task_role_arn            = aws_iam_role.pipeline_ecs_service_role.arn
+  task_role_arn            = aws_iam_role.pipeline_ecs_service_role.arn # keep
   execution_role_arn       = data.aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
     {
       name        = "c14-trendgineers-pipeline" 
-      image       = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-pipeline-ecr:latest" # change
+      image       = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-pipeline-ecr:latest" # change to our pipeline image
       cpu         = 256
       memory      = 512
       essential   = true
-      portMappings = [ 
-        {
-          containerPort = 5432
-          hostPort      = 5432
-          protocol      = "tcp"
-        }
-      ]
+      
       environment = [
-        { name = "DATABASE_IP", value = var.DATABASE_IP },
-        { name = "DATABASE_PORT", value = var.DATABASE_PORT },
-        { name = "DATABASE_USERNAME", value = var.DATABASE_USERNAME },
-        { name = "SCHEMA_NAME", value = var.db_schema },
-        { name = "DATABASE_NAME", value = var.DATABASE_NAME },
-        { name = "DATABASE_PASSWORD", value = var.DATABASE_PASSWORD }
+        { name = "DB_HOST", value = var.DB_HOST },
+        { name = "DB_PORT", value = var.DB_PORT },
+        { name = "DB_USERNAME", value = var.DB_USERNAME },
+        { name = "SCHEMA_NAME", value = var.SCHEMA_NAME },
+        { name = "DB_NAME", value = var.DB_NAME },
+        { name = "DB_PASSWORD", value = var.DB_PASSWORD },
+        { name = "AWS_ACCESS_KEY_ID", value = var.AWS_ACCESS_KEY_ID },
+        { name = "AWS_SECRET_ACCESS_KEY", value = var.AWS_SECRET_ACCESS_KEY }
       ]
 
       logConfiguration = {
         logDriver = "awslogs"
         options = {
+          awslogs-create-group  = "true"
           awslogs-group         = "/ecs/c14-trendgineers-pipeline"
           awslogs-region        = "eu-west-2"
           awslogs-stream-prefix = "ecs"
@@ -111,23 +120,36 @@ resource "aws_ecs_task_definition" "c14_trendgineers_pipeline" {
 }
 
 resource "aws_security_group" "pipeline_ecs_service_sg" {
-  name = "c14-trendgineers-pipeline-sg"
-  description = "Allow connection to Bluesky and Google trends"
-  vpc_id      = var.vpc_id
+  name        = "c14-trendgineers-pipeline-sg"
+  description = "Allow ECS tasks to read data from S3 and upload to RDS"
+  vpc_id      = var.VPC_ID
 
   lifecycle {
     prevent_destroy = false
   }
 
+  # Egress rule for S3 (HTTPS)
   egress {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"] 
-    }
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] 
+  }
+
+  # Egress rule for RDS
+  egress {
+    from_port   = 5432 # Replace with your RDS port if different
+    to_port     = 5432
+    protocol    = "tcp"
+    security_groups = [aws_security_group.rds_sg.id] 
+  }
+
+  tags = {
+    Name = "Pipeline ECS Service SG"
+  }
 }
 
-resource "aws_ecs_service" "service" {
+resource "aws_ecs_service" "pipeline_service" {
   name            = "c14-trendgineers-pipeline-service"
   cluster         = data.aws_ecs_cluster.cluster.id
   task_definition = aws_ecs_task_definition.c14_trendgineers_pipeline.arn
