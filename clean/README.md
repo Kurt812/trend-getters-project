@@ -1,4 +1,5 @@
 # Clean
+This directory contains the necessary code to clean the S3 bucket after a retention period. 
 
 ## Requirements
 To run this script, you will need the following:

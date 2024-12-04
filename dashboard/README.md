@@ -37,7 +37,7 @@ Before running the script, you need to set up your AWS credentials. Create a new
 | DB_HOST          | The hostname or IP address of the database.      |
 | DB_PORT          | The port number for the database connection.     |
 | DB_PASSWORD      | The password for the database user.              |
-| DB_USER          | The username for the database.                   |
+| DB_USERNAME          | The username for the database.                   |
 | DB_NAME          | The name of the database.                        |
 | SCHEMA_NAME      | The name of the database schema.                 |
 | VPC_ID           | The identifier for the Virtual Private Cloud (VPC) associated with the database. |
