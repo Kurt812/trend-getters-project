@@ -1,7 +1,6 @@
 """Test script for BlueSky extract python file."""
 # pylint: skip-file
 
-from unittest.mock import patch, MagicMock
 from freezegun import freeze_time
 import os
 import io
@@ -12,13 +11,18 @@ from unittest.mock import MagicMock, patch
 from atproto import models
 from atproto_firehose import FirehoseSubscribeReposClient
 from bluesky_extract import (format_text, extract_text_from_bytes,
-                             get_firehose_data, connect_and_write,
+                             get_firehose_data, connect_and_upload,
                              OUTPUT_FOLDER, HEADER)
 
 
 @pytest.fixture
 def sample_bytes():
     return b'''{"text": "Hello World", "$type": "app.bsky.feed.post", "langs": ["en"], "createdAt": "2024-12-03T11:17:35.355Z"}'''
+
+
+@pytest.fixture
+def topics():
+    return ["cloud", "sky"]
 
 
 def test_correct_formatting():
@@ -82,7 +86,7 @@ def test_unsuccessful_extract_text_attributeerror(mock_logging, mock_format_text
 @patch('bluesky_extract.parse_subscribe_repos_message')
 @patch('bluesky_extract.logging')
 @patch('bluesky_extract.csv.writer')
-def test_firehose_invalid_commit_type(mock_csv_writer, mock_logging, mock_parse_subscribe_repos_message, mock_extract, sample_bytes):
+def test_firehose_invalid_commit_type(mock_csv_writer, mock_logging, mock_parse_subscribe_repos_message, mock_extract, sample_bytes, topics):
     """test that if repo_commit is not the correct type, the function will exit early."""
 
     mock_parse_subscribe_repos_message.return_value = "Invalid Commit Object"
@@ -90,8 +94,6 @@ def test_firehose_invalid_commit_type(mock_csv_writer, mock_logging, mock_parse_
     # to prevent actual writing to files
     mock_csv_writer_instance = MagicMock()
     mock_csv_writer.return_value = mock_csv_writer_instance
-
-    topics = ["cloud", "sky"]
 
     get_firehose_data(sample_bytes, topics,
                       mock_csv_writer_instance, mock_csv_writer_instance)
@@ -106,10 +108,10 @@ def test_firehose_invalid_commit_type(mock_csv_writer, mock_logging, mock_parse_
 @patch('bluesky_extract.CAR')
 @patch('bluesky_extract.parse_subscribe_repos_message')
 @patch('bluesky_extract.csv.writer')
-def test_invalid_processed_post_type(mock_csv_writer, mock_parse_subscribe_repos_message, mock_CAR, mock_get_create):
+def test_invalid_processed_post_type(mock_csv_writer, mock_parse_subscribe_repos_message, mock_CAR, mock_get_create, topics):
     """Test that posts with an invalid type (i.e. not 'app.bsky.feed.post') are not processed to CSV."""
     message = b"test message"
-    topics = ["cloud"]
+    topic = topics[0]
 
     # Create a mock commit object with correct type, action and CID which is returned from parse func
     mock_repo_commit = MagicMock()
@@ -127,7 +129,7 @@ def test_invalid_processed_post_type(mock_csv_writer, mock_parse_subscribe_repos
     mock_processed_post = MagicMock(py_type="test.type")
     mock_get_create.return_value = mock_processed_post
 
-    get_firehose_data(message, topics, MagicMock(), MagicMock())
+    get_firehose_data(message, topic, MagicMock(), MagicMock())
 
     mock_csv_writer.writerow.assert_not_called()
 
@@ -168,12 +170,11 @@ def test_get_firehose_data_keyword_match(mock_parse, mock_CAR, mock_get_or_creat
 @patch("os.makedirs")
 @patch("csv.writer")
 @patch("bluesky_extract.FirehoseSubscribeReposClient")
-def test_ssl_context_and_client_initialisation(mock_client, mock_csv_writer, mock_make_dirs, mock_open, mock_certifi_where, mock_create_default_context):
+def test_ssl_context_and_client_initialisation(mock_client, mock_csv_writer, mock_make_dirs, mock_open, mock_certifi_where, mock_create_default_context, topics):
     """Test the creation of a mock SSL context (used to establish secure connection by firehose client) 
     and the correct handling of the certificate path and Firehose client instantiation, without real-world
     side effects."""
 
-    topics = ["cloud", "sky"]
     mock_ssl_context = MagicMock()
     # Ensuring function call receives mock ssl context and mock certificate filepath
     mock_create_default_context.return_value = mock_ssl_context
@@ -196,9 +197,8 @@ def test_ssl_context_and_client_initialisation(mock_client, mock_csv_writer, moc
 @patch("os.makedirs")
 @patch("csv.writer")
 @patch("bluesky_extract.FirehoseSubscribeReposClient")
-def test_connect_and_write_csv_and_firehose(mock_client, mock_csv_writer, mock_makedirs, mock_open):
+def test_connect_and_write_csv_and_firehose(mock_client, mock_csv_writer, mock_makedirs, mock_open, topics):
     """Test connects to firehose and tests the creation of the csv file, without real world effects."""
-    topics = ["cloud", "sky"]
 
     mock_client_instance = MagicMock()
     mock_client.return_value = mock_client_instance
