@@ -85,7 +85,6 @@ def get_firehose_data(message: bytes, topics: list[str]) -> None:
         if operation.action == "create" and operation.cid:
             raw_bytes = car_file.blocks.get(operation.cid)
             processed_post = get_or_create(raw_bytes, strict=False)
-
             if not processed_post.py_type is None and processed_post.py_type == "app.bsky.feed.post":
                 firehose_text = extract_text_from_bytes(raw_bytes)
                 if not firehose_text:
@@ -103,7 +102,6 @@ def connect_and_upload(topics: list[str]) -> None:
     logging.info(f"Starting Bluesky Firehose extraction for topics: {topics}")
 
     ssl_context = ssl.create_default_context(cafile=certifi.where())
-
     client = FirehoseSubscribeReposClient()
     client.ssl_context = ssl_context
 
