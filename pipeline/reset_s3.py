@@ -26,19 +26,19 @@ def delete_all_objects_from_s3(bucket_name: str, prefix: str) -> None:
                 'Prefix': prefix
             }
         while True:
-            
+
             if continuation_token:
                 buckert_parameters['ContinuationToken'] = continuation_token
 
             objects = s3_client.list_objects_v2(**buckert_parameters)
-            
+
             if 'Contents' in objects:
                 for obj in objects['Contents']:
-                    logging.info(f"Deleting object: {obj['Key']}")
+                    logging.info("Deleting object: %s", obj['Key'])
                     s3_client.delete_object(Bucket=bucket_name, Key=obj['Key'])
-                
-                logging.info(f"Successfully deleted {len(objects['Contents'])} objects.")
-            
+
+                logging.info("Successfully deleted %s objects.", len(objects['Contents']))
+
             if objects.get('IsTruncated'):
                 continuation_token = objects.get('NextContinuationToken')
             else:
@@ -50,5 +50,5 @@ def delete_all_objects_from_s3(bucket_name: str, prefix: str) -> None:
         logging.info("Error: %s",e)
 
 if __name__ == "__main__":
-    delete_all_objects_from_s3(os.environ.get("S3_BUCKET_NAME"), 
+    delete_all_objects_from_s3(os.environ.get("S3_BUCKET_NAME"),
                                os.environ.get("S3_OBJECT_PREFIX"))
