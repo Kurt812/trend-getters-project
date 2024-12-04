@@ -1,3 +1,9 @@
+variable "DATABASE_NAME" {
+  description = "The name of the database to create"
+  type        = string
+  default     = "trends"
+}
+
 variable "db_name" {
   description = "The name of the database to create"
   type        = string
@@ -10,8 +16,20 @@ variable "vpc_id" {
   sensitive = true
 }
 
+variable "DATABASE_USERNAME" {
+  description = "The database username"
+  type        = string
+  sensitive = true
+}
+
 variable "db_username" {
   description = "The database username"
+  type        = string
+  sensitive = true
+}
+
+variable "DATABASE_PASSWORD" {
+  description = "The database password"
   type        = string
   sensitive = true
 }
@@ -22,13 +40,13 @@ variable "db_password" {
   sensitive = true
 }
 
-variable "db_port" {
+variable "DATABASE_PORT" {
   description = "The database port"
   type        = string
   sensitive = true
 }
 
-variable "db_host" {
+variable "DATABASE_IP" {
   description = "The database endpoint"
   type        = string
   sensitive = true
