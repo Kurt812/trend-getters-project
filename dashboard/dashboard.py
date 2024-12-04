@@ -68,7 +68,7 @@ def submit_topic(data):
     try:
         response = requests.post(API_ENDPOINT, json=data, timeout=10)
         if response.status_code == 200:
-            st.success("Topic submitted successfully!")
+            st.success("✅ Topic submitted successfully!")
         else:
             st.error(f"Error: {response.json().get(
                 'message', 'Unknown error')}")
@@ -78,10 +78,13 @@ def submit_topic(data):
 
 def user_verification():
     """UI for verifying the user's phone number"""
-    with st.form("user_form"):
-        user_first = st.text_input("Enter your first name:")
-        user_last = st.text_input("Enter your last name:")
-        phone_number = st.text_input("Enter your phone number:")
+    with st.form("user_form", clear_on_submit=True):
+        st.markdown('<div class="form-header">Enter Your Details</div>',
+                    unsafe_allow_html=True)
+        user_first = st.text_input("First Name", help="Enter your first name")
+        user_last = st.text_input("Last Name", help="Enter your last name")
+        phone_number = st.text_input(
+            "Phone Number", help="Enter a valid phone number")
         submit_user_button = st.form_submit_button("Submit")
 
     if submit_user_button:
@@ -118,49 +121,72 @@ def user_verification():
 
 
 def topic_submission():
-    """UI for submitting a topic"""
+    """UI for submitting a topic in the left panel"""
     if not st.session_state.get("is_new_user", False):
         st.write(f"Welcome back, {st.session_state['user_first']}!")
     else:
         st.write(f"Greetings, {st.session_state['user_first']}!")
 
-    with st.form("topic_form"):
-        topic_name = st.text_input("Enter the topic or keyword:")
-        notification_threshold = st.number_input(
-            "Set notification threshold (optional):", min_value=0, value=0
-        )
-        subscription_status = st.selectbox(
-            "Subscription Status:", ["enabled", "disabled"]
-        )
-        submit_topic_button = st.form_submit_button("Submit Topic")
+    with st.sidebar:
+        st.header("Topic Submission")
+        with st.form("topic_form"):
+            topic_name = st.text_input("Enter the topic or keyword:")
+            subscription_status = st.selectbox(
+                "Subscription Status:", ["enabled", "disabled"]
+            )
+            notification_threshold = st.number_input(
+                "Set notification threshold (optional):", min_value=0, value=0
+            )
+            submit_topic_button = st.form_submit_button("Submit Topic")
 
-    if submit_topic_button:
-        if topic_name.strip():
-            topic_data = {
-                "topic_name": topic_name.strip(),
-                "notification_threshold": notification_threshold,
-                "user_first": st.session_state["user_first"],
-                "user_last": st.session_state["user_last"],
-                "phone_number": st.session_state["phone_number"],
-                "subscription_status": subscription_status,
-            }
-            submit_topic(topic_data)
-        else:
-            st.warning("Please enter a valid topic.")
+        if submit_topic_button:
+            if topic_name.strip():
+                topic_data = {
+                    "topic_name": topic_name.strip(),
+                    "notification_threshold": notification_threshold,
+                    "user_first": st.session_state["user_first"],
+                    "user_last": st.session_state["user_last"],
+                    "phone_number": st.session_state["phone_number"],
+                    "subscription_status": subscription_status,
+                }
+                submit_topic(topic_data)
+            else:
+                st.warning("Please enter a valid topic.")
+
+
+def display_center_message():
+    """Display a grey message in the center of the screen for new users"""
+    st.markdown(
+        """
+        <div style="
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 80vh; 
+            color: grey; 
+            font-size: 20px;
+        ">
+        Enter keywords to see visualizations
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 def main():
     """Main function to render the Streamlit app."""
     st.title("Trend Getter")
-    st.write("Submit your details to track trends.")
 
     if "user_verified" not in st.session_state:
         st.session_state["user_verified"] = False
 
     if not st.session_state["user_verified"]:
+        st.write("Submit your details to track trends.")
         user_verification()
     else:
         topic_submission()
+        if st.session_state.get("is_new_user", False):
+            display_center_message()
 
 
 if __name__ == "__main__":
