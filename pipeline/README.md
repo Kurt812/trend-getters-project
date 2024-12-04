@@ -11,13 +11,13 @@ To run this script, you will need the following:
 - `requests`: For making HTTP requests
 - `pandas`: For data manipulation and analysis
 - `python-dotenv`: For loading environment variables from a `.env` file
-- `psycopg2-binary`: For connecting, querying and editing the database.
-- `vaderSentiment`: For performing sentiment analysis on the topic words.
-- `atproto`: For connecting to the BlueSky firehose.
+- `psycopg2-binary`: For connecting, querying and modifying the PostgreSQL database.
+- `vaderSentiment`: For performing sentiment analysis on the text data.
+- `atproto`: For connecting to the BlueSky firehose to consume and parse real-time data streams.
 - `certifi`: For providing valid SSL certificates for secure connection to firehose.
 - `freezegun`: For freezing time during testing processes.
-- `boto3`: 
-- `flask`:
+- `boto3`: For integration with AWS services, including uploading files and managing data in S3 buckets.
+- `flask`: For creating RESTful APIs to interact with and manage data.
 
 
 To install these dependencies, use the following command:
