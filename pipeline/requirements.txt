@@ -5,3 +5,4 @@ vaderSentiment
 atproto
 certifi
 boto3
+aioboto3
