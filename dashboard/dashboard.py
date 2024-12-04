@@ -1,3 +1,4 @@
+"""Trend Getter Dashboard"""
 from os import environ as ENV
 from dotenv import load_dotenv
 import streamlit as st
@@ -33,6 +34,7 @@ def execute_query(query, params=None, fetch_one=False):
             return cursor.fetchone()
         conn.commit()
         conn.close()
+        return None
     except psycopg2.DatabaseError as e:
         st.error(f"Database error: {e}")
         return None
@@ -47,7 +49,7 @@ def check_phone_number(phone_number):
 
 def check_user(phone_number, first_name, last_name):
     """Check if the user exists in the database and verify their name."""
-    query = """SELECT * FROM "user" 
+    query = """SELECT * FROM "user"
                WHERE phone_number = %s 
                AND first_name = %s 
                AND last_name = %s;"""
@@ -58,7 +60,7 @@ def check_user(phone_number, first_name, last_name):
 
 def insert_user(first_name, last_name, phone_number):
     """Insert a new user into the database"""
-    query = """INSERT INTO "user" (first_name, last_name, phone_number) 
+    query = """INSERT INTO "user" (first_name, last_name, phone_number)
                VALUES (%s, %s, %s);"""
     execute_query(query, (first_name, last_name, phone_number))
 
@@ -70,8 +72,8 @@ def submit_topic(data):
         if response.status_code == 200:
             st.success("✅ Topic submitted successfully!")
         else:
-            st.error(f"Error: {response.json().get(
-                'message', 'Unknown error')}")
+            st.error(f"""Error: {response.json().get(
+                'message', 'Unknown error')}""")
     except requests.exceptions.RequestException as e:
         st.error(f"Failed to connect to the API. Error: {e}")
 
