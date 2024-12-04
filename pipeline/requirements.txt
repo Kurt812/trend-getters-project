@@ -4,8 +4,6 @@ python-dotenv
 vaderSentiment
 atproto
 certifi
-<<<<<<< HEAD
 freezegun
-=======
+flask
 boto3
->>>>>>> bff3da86540c2ff745a925b8ca8f89cbf3615f47
