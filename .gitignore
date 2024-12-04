@@ -91,4 +91,4 @@ venv/
 .venv
 .env
 .coverage
-*.csv
+.csv

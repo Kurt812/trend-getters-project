@@ -13,3 +13,4 @@ resource "aws_ecr_repository" "c14_trendgineers_pipeline_ecr" {
     prevent_destroy = false
   }
 }
+

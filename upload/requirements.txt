@@ -1,0 +1,5 @@
+certifi
+boto3
+atproto
+python-dotenv
+psycopg2-binary

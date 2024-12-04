@@ -1,2 +1,13 @@
 pytest
 pytest-cov
+pandas
+psycopg2-binary
+python-dotenv
+vaderSentiment
+atproto
+certifi
+boto3
+freezegun
+flask
+streamlit
+

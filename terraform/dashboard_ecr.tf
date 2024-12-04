@@ -12,4 +12,6 @@ resource "aws_ecr_repository" "c14_trendgineers_dashboard_ecr" {
   lifecycle {
     prevent_destroy = false
   }
+
 }
+
