@@ -4,3 +4,4 @@ python-dotenv
 vaderSentiment
 atproto
 certifi
+boto3
