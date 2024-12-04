@@ -83,7 +83,6 @@ def get_firehose_data(message: bytes) -> None:
                 firehose_text = extract_text_from_bytes(raw_bytes)
                 if firehose_text is not None:
                     logging.info('Extracted text: %s', firehose_text)
-                    logging.info(type(firehose_text))
                     upload_to_s3(firehose_text)
 
 def start_firehose_extraction(firehose_client: FirehoseSubscribeReposClient) -> None:
