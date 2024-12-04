@@ -4,5 +4,14 @@ python-dotenv
 vaderSentiment
 atproto
 certifi
+freezegun
+boto3
+pandas
+psycopg2-binary
+python-dotenv
+vaderSentiment
+atproto
+certifi
+flask
 boto3
 aioboto3
