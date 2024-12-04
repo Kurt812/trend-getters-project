@@ -101,8 +101,9 @@ def create_dataframe(topic: list[str]) -> pd.DataFrame:
 
     return pd.DataFrame(results)
 
-def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[str]:
+def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[dict]:
     """Fetch and print suggestions for a given keyword."""
+    print(f"Type: {pytrend.suggestions(keyword=keyword)}")
     return pytrend.suggestions(keyword=keyword)
 
 def main(topic: list[str]) -> pd.DataFrame:
@@ -123,4 +124,4 @@ if __name__ == "__main__":
     topics = ['wine','river']
     extracted_dataframe = main(topics)
 
-    print(extracted_dataframe)
+    logging.info(extracted_dataframe)
