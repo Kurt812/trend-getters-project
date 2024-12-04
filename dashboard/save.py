@@ -23,56 +23,20 @@ def get_connection() -> psycopg2.extensions.connection:
     )
 
 
-def fetch_user_keywords(user_id):
-    query = """SELECT k.keyword 
-               FROM subscription s
-               JOIN keywords k ON s.keywords_id = k.keywords_id
-               WHERE s.user_id = %s;"""
-
-    conn = get_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SET SEARCH_PATH TO %s;",
-                   (ENV["SCHEMA_NAME"],))
-    cursor.execute(query, (user_id,))
-    results = cursor.fetchall()
-    return [result["keyword"] for result in results]
-
-
-def fetch_keyword_id(keyword) -> list:
+def fetch_keywords() -> list:
     """Fetch available keywords from the database."""
-    query = "SELECT * FROM keywords WHERE keyword = %s;"
-    result = execute_query(query, (keyword,), fetch_one=True)
-    return result
+    query = "SELECT DISTINCT keyword FROM keywords;"  # Replace with your actual table name
+    result = execute_query(query)
+    return [row["keyword"] for row in result] if result else []
 
 
-def subscribe_to_keyword(user_id, keywords_id, subscription_status, notification_threshold) -> None:
-    """Subscribe a user to a keyword with a given threshold, inserting if not exists and updating if exists."""
-    # Step 1: Check if the subscription already exists
-    check_query = """
-        SELECT 1 
-        FROM subscription 
-        WHERE user_id = %s AND keywords_id = %s;
-    """
-    result = execute_query(check_query, (user_id, keywords_id),
-                           True)  # Assumes fetch_query returns a result list
-
-    if result:  # Record exists
-        # Step 2: Update the existing record
-        update_query = """
-            UPDATE subscription
-            SET subscription_status = %s, notification_threshold = %s
-            WHERE user_id = %s AND keywords_id = %s;
-        """
-        execute_query(update_query, (subscription_status,
-                      notification_threshold, user_id, keywords_id))
-    else:  # Record does not exist
-        # Step 3: Insert a new record
-        insert_query = """
-            INSERT INTO subscription (user_id, keywords_id, subscription_status, notification_threshold)
-            VALUES (%s, %s, %s, %s);
-        """
-        execute_query(insert_query, (user_id, keywords_id,
-                      subscription_status, notification_threshold))
+def subscribe_to_keyword(user_phone: str, keyword: str, threshold: int) -> None:
+    """Subscribe a user to a keyword with a given threshold."""
+    query = """INSERT INTO subscriptions (phone_number, keyword, threshold)
+               VALUES (%s, %s, %s)
+               ON CONFLICT (phone_number, keyword) 
+               DO UPDATE SET threshold = EXCLUDED.threshold;"""
+    execute_query(query, (user_phone, keyword, threshold))
 
 
 def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
@@ -108,13 +72,13 @@ def check_phone_number(phone_number: str) -> bool:
 
 def check_user(phone_number: str, first_name: str, last_name: str) -> bool:
     """Check if the user exists in the database and verify their name."""
-    query = """SELECT user_id FROM "user"
+    query = """SELECT * FROM "user"
                WHERE phone_number = %s 
                AND first_name = %s 
                AND last_name = %s;"""
     result = execute_query(
         query, (phone_number, first_name, last_name), fetch_one=True)
-    return result
+    return result is not None
 
 
 def insert_user(first_name: str, last_name: str, phone_number: str) -> None:
@@ -162,9 +126,7 @@ def user_verification() -> None:
                 "is_new_user": False
             })
             if check_phone_number(phone_number.strip()):
-                user_id = check_user(phone_number, user_first, user_last)
-                if user_id is not None:
-                    st.session_state["user_id"] = user_id
+                if check_user(phone_number, user_first, user_last):
                     st.success("Phone number and name verified!")
                 else:
                     st.session_state["verification_error"] = (
@@ -179,9 +141,6 @@ def user_verification() -> None:
                     )
                 else:
                     insert_user(user_first, user_last, phone_number)
-                    user_id = check_user(phone_number, user_first, user_last)
-                    st.session_state["user_id"] = user_id
-                    print("USERID", user_id)
                     st.session_state["is_new_user"] = True
                     st.success(
                         "Phone number not found. Registering to database.")
@@ -193,66 +152,38 @@ def user_verification() -> None:
         st.error(st.session_state["verification_error"])
 
 
-def topic_and_subscription_ui() -> None:
-    """UI for topic entry and keyword subscription."""
+def topic_submission() -> None:
+    """UI for submitting a topic in the left panel"""
     if not st.session_state.get("is_new_user", False):
         st.write(f"Welcome back, {st.session_state['user_first']}!")
     else:
         st.write(f"Greetings, {st.session_state['user_first']}!")
 
     with st.sidebar:
-        st.header("Topic Management")
-        st.subheader("Enter New Topic")
+        st.header("Topic Submission")
         with st.form("topic_form"):
-            new_topic = st.text_input("Enter the topic or keyword:")
-            print('q', new_topic, 'q')
-            submit_topic_button = st.form_submit_button("Add Topic")
+            topic_name = st.text_input("Enter the topic or keyword:")
+            subscription_status = st.selectbox(
+                "Subscription Status:", ["enabled", "disabled"]
+            )
+            notification_threshold = st.number_input(
+                "Set notification threshold (optional):", min_value=0, value=0
+            )
+            submit_topic_button = st.form_submit_button("Submit Topic")
 
         if submit_topic_button:
-            if new_topic.strip():
+            if topic_name.strip():
                 topic_data = {
-                    "topic_name": new_topic.strip()
+                    "topic_name": topic_name.strip(),
+                    "notification_threshold": notification_threshold,
+                    "user_first": st.session_state["user_first"],
+                    "user_last": st.session_state["user_last"],
+                    "phone_number": st.session_state["phone_number"],
+                    "subscription_status": subscription_status,
                 }
                 submit_topic(topic_data)
             else:
                 st.warning("Please enter a valid topic.")
-
-        # Keyword Subscription
-        st.subheader("Subscribe to Keywords")
-        existing_keywords = fetch_user_keywords(
-            st.session_state["user_id"]["user_id"])
-        if new_topic.strip() != '' and new_topic.strip() not in existing_keywords:
-            existing_keywords.append(new_topic.strip())
-
-        if existing_keywords:
-            with st.form("subscription_form"):
-                selected_keyword = st.selectbox(
-                    "Choose a keyword to subscribe:", existing_keywords)
-                subscription_status = st.selectbox(
-                    "Subscription Status:", ["disabled", "enabled"]
-                ) == "enabled"
-                subscription_threshold = st.number_input(
-                    "Set notification threshold:", min_value=0, value=0
-                )
-                subscribe_button = st.form_submit_button("Subscribe")
-
-            if subscribe_button:
-                keyword_id = fetch_keyword_id(selected_keyword)["keywords_id"]
-                print(st.session_state["user_id"]["user_id"])
-                print(keyword_id)
-                print(subscription_threshold)
-                if not subscription_status:
-                    subscription_threshold = None
-                if selected_keyword.strip():
-                    subscribe_to_keyword(
-                        st.session_state["user_id"]["user_id"], keyword_id, subscription_status, subscription_threshold
-                    )
-                    st.success(f"Subscribed to '{selected_keyword}' with a threshold of {
-                               subscription_threshold}!")
-                else:
-                    st.warning("Please select a valid keyword.")
-        else:
-            st.info("No keywords available. Add a topic to create keywords.")
 
 
 def display_center_message() -> None:
@@ -276,7 +207,7 @@ def display_center_message() -> None:
 
 def main() -> None:
     """Main function to render the Streamlit app."""
-    st.title("Trend Getter Dashboard")
+    st.title("Trend Getter")
 
     if "user_verified" not in st.session_state:
         st.session_state["user_verified"] = False
@@ -285,7 +216,7 @@ def main() -> None:
         st.write("Submit your details to track trends.")
         user_verification()
     else:
-        topic_and_subscription_ui()
+        topic_submission()
         if st.session_state.get("is_new_user", False):
             display_center_message()
 
