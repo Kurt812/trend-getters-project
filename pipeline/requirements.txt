@@ -6,4 +6,5 @@ atproto
 certifi
 flask
 boto3
+aioboto3
 freezegun
