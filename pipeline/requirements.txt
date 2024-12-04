@@ -4,6 +4,16 @@ python-dotenv
 vaderSentiment
 atproto
 certifi
+<<<<<<< HEAD
 freezegun
+=======
+boto3
+>>>>>>> bff3da86540c2ff745a925b8ca8f89cbf3615f47
+pandas
+psycopg2-binary
+python-dotenv
+vaderSentiment
+atproto
+certifi
 flask
 boto3

@@ -185,7 +185,7 @@ def test_ssl_context_and_client_initialisation(mock_client, mock_csv_writer, moc
     mock_client.return_value = mock_client_instance
     mock_client_instance.ssl_context = mock_ssl_context
 
-    connect_and_write(topics)
+    connect_and_upload(topics)
 
     mock_create_default_context.assert_called_once_with(
         cafile="/mock/path/to/certificate.pem")
@@ -211,7 +211,7 @@ def test_connect_and_write_csv_and_firehose(mock_client, mock_csv_writer, mock_m
 
     mock_csv_writer.return_value = mock_csv_writer_instance
 
-    connect_and_write(topics)
+    connect_and_upload(topics)
 
     expected_filename = os.path.join(
         OUTPUT_FOLDER, "bluesky_output_20001203_161116.csv"
