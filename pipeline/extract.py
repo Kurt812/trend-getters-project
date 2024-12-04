@@ -155,7 +155,6 @@ def main(topic: list[str]) -> pd.DataFrame:
 
 if __name__ == "__main__":
     topics = ['good', 'bad']
-    hour = 2
     extracted_dataframe = main(topics)
 
     logging.info("\n %s", extracted_dataframe)
