@@ -38,7 +38,7 @@ def s3_connection() -> client:
     )
     return s3
 
-def initialize_trend_request():
+def initialize_trend_request() -> TrendReq:
     """Initialize and return a TrendReq object."""
     return TrendReq()
 
@@ -101,7 +101,7 @@ def create_dataframe(topic: list[str]) -> pd.DataFrame:
 
     return pd.DataFrame(results)
 
-def fetch_suggestions(pytrend: TrendReq, keyword: str):
+def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[str]:
     """Fetch and print suggestions for a given keyword."""
     return pytrend.suggestions(keyword=keyword)
 
