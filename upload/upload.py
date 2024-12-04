@@ -20,6 +20,13 @@ from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos
 S3_CLIENT = boto3.client('s3')
 load_dotenv(".env")
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+    ]
+)
 
 class JSONExtra(json.JSONEncoder):
     """Serializes raw objects (including CID-Content Identifier) as strings."""
@@ -74,13 +81,14 @@ def get_firehose_data(message: bytes) -> None:
 
             if not processed_post.py_type is None and processed_post.py_type == "app.bsky.feed.post":
                 firehose_text = extract_text_from_bytes(raw_bytes)
-                if not firehose_text:
-                    continue
-                logging.info('Extracted text: %s', firehose_text)
-                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-                s3_key = f"{os.environ.get("S3_OBJECT_PREFIX")}{timestamp}.txt"
+                if firehose_text is not None:
+                    logging.info('Extracted text: %s', firehose_text)
+                    logging.info(type(firehose_text))
+                    upload_to_s3(firehose_text)
 
-                upload_to_s3(firehose_text, s3_key)
+def start_firehose_extraction(firehose_client: FirehoseSubscribeReposClient) -> None:
+    """Starts the Bluesky firehose extraction"""
+    firehose_client.start(lambda message: get_firehose_data(message))
 
 
 def connect_and_upload() -> None:
@@ -92,29 +100,30 @@ def connect_and_upload() -> None:
     firehose_client = FirehoseSubscribeReposClient()
     firehose_client.ssl_context = ssl_context
 
-    def start_firehose_extraction() -> None:
-        """Starts the Bluesky firehose extraction"""
-        firehose_client.start(lambda message: get_firehose_data(message))
-
-    start_firehose_extraction()
+    start_firehose_extraction(firehose_client)
 
 
-def upload_to_s3(content: str, key: str) -> None:
+def upload_to_s3(content: str) -> None:
     """Uploads text to S3 Bucket"""
     try:
+        current_datetime = datetime.datetime.now()
+        current_date = current_datetime.strftime("%Y-%m-%d")
+        current_hour = current_datetime.strftime("%H")
+
+        s3_bucket = os.environ.get("S3_BUCKET_NAME")
+        s3_prefix = os.environ.get("S3_OBJECT_PREFIX")
+
+        folder_path = f"{s3_prefix}{current_date}/{current_hour}/"
+        timestamp = current_datetime.strftime("%Y%m%d%H%M%S%f")
+        s3_key = f"{folder_path}{timestamp}.txt"
+
         s3_client = s3_connection()
-        s3_client.put_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=key, Body=content)
-        logging.info("Uploaded to S3: %s", key)
+
+        s3_client.put_object(Bucket=s3_bucket, Key=s3_key, Body=content)
+        logging.info("Uploaded to S3: %s", s3_key)
     except (NoCredentialsError, PartialCredentialsError) as e:
         logging.error("S3 credentials error: %s", e)
-    except Exception as e:
-        logging.error("Error uploading to S3: %s", e)
-
-
-def main():
-    """Main function that uploads to S3"""
-    connect_and_upload()
 
 
 if __name__ == "__main__":
-    main()
+    connect_and_upload()
