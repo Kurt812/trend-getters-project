@@ -66,7 +66,6 @@ def format_text(text: str) -> str:
 def extract_text_from_bytes(raw: bytes) -> str:
     """Extracts text from a raw Bluesky post"""
     try:
-        print(raw)
         json_data = json.dumps(raw, cls=JSONExtra, indent=2)
         parsed_json = json.loads(json_data)
         text = parsed_json.get('text')
@@ -82,15 +81,12 @@ def get_firehose_data(message: bytes, topics: list[str]) -> None:
     if not isinstance(repo_commit, models.ComAtprotoSyncSubscribeRepos.Commit):
         return
     car_file = CAR.from_bytes(repo_commit.blocks)
-
     for operation in repo_commit.ops:
-
         if operation.action == "create" and operation.cid:
             raw_bytes = car_file.blocks.get(operation.cid)
             processed_post = get_or_create(raw_bytes, strict=False)
             if not processed_post.py_type is None and processed_post.py_type == "app.bsky.feed.post":
                 firehose_text = extract_text_from_bytes(raw_bytes)
-
                 if not firehose_text:
                     continue
                 logging.info(f'Extracted text: {firehose_text}')
