@@ -48,7 +48,7 @@ def s3_connection() -> client:
             config=config
         )
     except Exception as e:
-        logging.error('An error occurred attempting to connect to S3: ', e)
+        logging.error('An error occurred attempting to connect to S3: %s', e)
         return None
     return s3
 
@@ -75,20 +75,21 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
     except ClientError as e:
         if e.response['Error']['Code'] == 'NoSuchKey':
             logging.error("No files found in S3: %s", e)
-            raise FileNotFoundError(f"File '{file_name}' not found in S3.")
+            raise FileNotFoundError(
+                f"File '{file_name}' not found in S3.") from e
 
     return None
 
 
-def extract_bluesky_files(s3: client, topic: list[str]) -> list[str]:
+def extract_bluesky_files(s3: client) -> list[str]:
     """Accesses files from S3 and returns a list of texts with the topic present"""
     continuation_token = None
     file_names = []
 
     bucket_parameters = {'Bucket': os.environ.get("S3_BUCKET_NAME")}
     if not bucket_parameters.get('Bucket'):
-        raise KeyError("Missing environment variable: %s",
-                       bucket_parameters.keys())
+        raise KeyError(f"Missing environment variable: {
+                       bucket_parameters.keys()}")
 
     # continously fetches .txt files from bucket until all files have been fetched
     while True:
@@ -126,7 +127,7 @@ def create_dataframe(topic: list[str]) -> pd.DataFrame:
     """Main function to extract data and return a DataFrame of the relevant data"""
     s3 = s3_connection()
 
-    filenames = extract_bluesky_files(s3, topic)
+    filenames = extract_bluesky_files(s3)
     matching_file_texts = multi_threading_matching(s3, topic, filenames)
     if matching_file_texts:
         return pd.DataFrame(matching_file_texts)
