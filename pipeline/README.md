@@ -5,7 +5,6 @@ This directory contains all the necessary code and documentation for the Extract
 ## Requirements 📋
 
 To run this script, you will need the following:
-- **Python**: Version 3.10.
 - `pytest`: For running unit tests.
 - `pytest-cov`: For measuring test coverage.
 - `requests`: For making HTTP requests.
@@ -28,7 +27,7 @@ pip3 install -r requirements.txt
 
 ## Files Explained 🗂️
 - **`Dockerfile`**: this docker file creates an image along with the required dependencies and files for the `api.py` file that can be accessed vi*a port 5000.
-- **`api.py`**: this python script creates a Flask web application with two endpoints for the management of topics: 'GET' to retrieve a list of topics or 'POST' new topics.
+- **`api.py`**: this python script creates a Flask web application with an 'POST' endpoint for the creation of new topics.
 - **`bluesky_extract.py`**: this python script connects to the BlueSky Firehose and extracts data relevant to user-defined topics. This raw data is then uploaded to an S3 bucket for further processing and use.
 - **`connect.sh`**: this is a bash script written to establish a connection with the PostgreSQL database using environment variables loaded from a `.env` file.
 - **`load.py`**: this Python script uploads topic data into an RDS database by inserting entries into a specified schema and table.
