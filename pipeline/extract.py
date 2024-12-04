@@ -19,6 +19,7 @@ logging.basicConfig(
     ]
 )
 
+
 def s3_connection() -> client:
     """Connects to an S3"""
     config = Config(
@@ -38,12 +39,14 @@ def s3_connection() -> client:
     )
     return s3
 
+
 def initialize_trend_request() -> TrendReq:
     """Initialize and return a TrendReq object."""
     return TrendReq()
 
+
 def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
-    """Checks files from S3 fir keywords and returns relevant data if keyword is found"""
+    """Checks files from S3 for keywords and returns relevant data if keyword is found"""
     try:
         file_obj = s3.get_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=file_name)
         file_content = file_obj['Body'].read().decode('utf-8')
@@ -58,14 +61,15 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
         logging.error("No files found in S3: %s", e)
     return None
 
-def access_bluesky_files(s3: client, topic: list[str]) -> list[str]:
+
+def extract_bluesky_files(s3: client, topic: list[str]) -> list[str]:
     """Accesses files from S3 and returns a list of texts with the topic present"""
     continuation_token = None
     file_names = []
 
+    bucket_parameters = {'Bucket': os.environ.get("S3_BUCKET_NAME")}
     #continously fetches .txt files from bucket until all files have been fetched
     while True:
-        bucket_parameters = {'Bucket': os.environ.get("S3_BUCKET_NAME")}
         if continuation_token:
             bucket_parameters['ContinuationToken'] = continuation_token
 
@@ -79,7 +83,11 @@ def access_bluesky_files(s3: client, topic: list[str]) -> list[str]:
         continuation_token = response.get('NextContinuationToken')
         if not continuation_token:
             break
+    return file_names
 
+
+def multi_threading_matching(s3: client, topic: list[str], file_names: list[str],) -> list[str]:
+    """Uses multi-threading to extract matching text from S3 files"""
     matching_texts = []
     with ThreadPoolExecutor(max_workers=40) as thread_pool:
         submitted_tasks = [thread_pool.submit(fetch_file_content, s3,
@@ -92,36 +100,38 @@ def access_bluesky_files(s3: client, topic: list[str]) -> list[str]:
 
     return matching_texts
 
+
 def create_dataframe(topic: list[str]) -> pd.DataFrame:
     """Main function to extract data and return a DataFrame of the relevant data"""
     s3 = s3_connection()
 
-    results = access_bluesky_files(s3, topic)
-    logging.info(type(results))
+    filenames = extract_bluesky_files(s3, topic)
+    matching_file_texts = multi_threading_matching(s3, topic, filenames)
+    return pd.DataFrame(matching_file_texts)
 
-    return pd.DataFrame(results)
 
 def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[dict]:
     """Fetch and print suggestions for a given keyword."""
-    print(f"Type: {pytrend.suggestions(keyword=keyword)}")
     return pytrend.suggestions(keyword=keyword)
+
 
 def main(topic: list[str]) -> pd.DataFrame:
     """Extracts data from S3 Bucket and google trends"""
     extract_dataframe = create_dataframe(topic)
 
     pytrend = initialize_trend_request()
-    extract_dataframe['related_terms'] = ""
+    extract_dataframe['Related Terms'] = ""
 
     for keyword in topic:
         extract_dataframe.loc[extract_dataframe['Keyword']
-                              == keyword, 'related_terms'] = ",".join(
+                              == keyword, 'Related Terms'] = ",".join(
             [suggestion['title'] for suggestion in fetch_suggestions(pytrend, keyword)]
         )
     return extract_dataframe
+
 
 if __name__ == "__main__":
     topics = ['wine','river']
     extracted_dataframe = main(topics)
 
-    logging.info(extracted_dataframe)
+    logging.info("\n %s", extracted_dataframe)
