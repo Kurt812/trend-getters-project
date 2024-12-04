@@ -46,6 +46,9 @@ def main(topics: list[str]):
     keyword_ids = insert_keywords(conn, cursor, topics)
     print(keyword_ids)
 
+#keyword recordings
+#related terms
+#related term assignment
 
 if __name__ == "__main__":
     topics = ['strawberries', 'chocolate']  # this
