@@ -1,5 +1,6 @@
 """Trend Getter Dashboard"""
 from os import environ as ENV
+import re
 from dotenv import load_dotenv
 import streamlit as st
 import requests
@@ -11,7 +12,7 @@ load_dotenv()
 API_ENDPOINT = ENV["API_ENDPOINT"]
 
 
-def get_connection():
+def get_connection() -> psycopg2.extensions.connection:
     """Establish and return a database connection"""
     return psycopg2.connect(
         user=ENV["DB_USERNAME"],
@@ -22,7 +23,7 @@ def get_connection():
     )
 
 
-def execute_query(query, params=None, fetch_one=False):
+def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
     """Execute a query and return results if applicable"""
     try:
         conn = get_connection()
@@ -40,14 +41,20 @@ def execute_query(query, params=None, fetch_one=False):
         return None
 
 
-def check_phone_number(phone_number):
+def is_valid_uk_phone_number(phone_number: str) -> bool:
+    """Check if the given phone number is a valid UK mobile number"""
+    pattern = r'^07\d{9}$'
+    return bool(re.match(pattern, phone_number))
+
+
+def check_phone_number(phone_number: str) -> bool:
     """Check if the phone number exists in the database"""
     query = "SELECT * FROM \"user\" WHERE phone_number = %s;"
     result = execute_query(query, (phone_number,), fetch_one=True)
     return result is not None
 
 
-def check_user(phone_number, first_name, last_name):
+def check_user(phone_number: str, first_name: str, last_name: str) -> bool:
     """Check if the user exists in the database and verify their name."""
     query = """SELECT * FROM "user"
                WHERE phone_number = %s 
@@ -58,14 +65,14 @@ def check_user(phone_number, first_name, last_name):
     return result is not None
 
 
-def insert_user(first_name, last_name, phone_number):
+def insert_user(first_name: str, last_name: str, phone_number: str) -> None:
     """Insert a new user into the database"""
     query = """INSERT INTO "user" (first_name, last_name, phone_number)
                VALUES (%s, %s, %s);"""
     execute_query(query, (first_name, last_name, phone_number))
 
 
-def submit_topic(data):
+def submit_topic(data: dict) -> None:
     """Submit topic details to the API"""
     try:
         response = requests.post(API_ENDPOINT, json=data, timeout=10)
@@ -78,7 +85,7 @@ def submit_topic(data):
         st.error(f"Failed to connect to the API. Error: {e}")
 
 
-def user_verification():
+def user_verification() -> None:
     """UI for verifying the user's phone number"""
     with st.form("user_form", clear_on_submit=True):
         st.markdown('<div class="form-header">Enter Your Details</div>',
@@ -111,9 +118,16 @@ def user_verification():
                     )
                     st.session_state["user_verified"] = False
             else:
-                insert_user(user_first, user_last, phone_number)
-                st.session_state["is_new_user"] = True
-                st.success("Phone number not found. Registering to database.")
+                if not is_valid_uk_phone_number(phone_number):
+                    st.session_state["user_verified"] = False
+                    st.session_state["verification_error"] = (
+                        "Please enter a valid UK phone number (e.g., starting with 07 and 11 digits long)."
+                    )
+                else:
+                    insert_user(user_first, user_last, phone_number)
+                    st.session_state["is_new_user"] = True
+                    st.success(
+                        "Phone number not found. Registering to database.")
             st.rerun()
         else:
             st.warning("Please enter both your name and phone number.")
@@ -122,7 +136,7 @@ def user_verification():
         st.error(st.session_state["verification_error"])
 
 
-def topic_submission():
+def topic_submission() -> None:
     """UI for submitting a topic in the left panel"""
     if not st.session_state.get("is_new_user", False):
         st.write(f"Welcome back, {st.session_state['user_first']}!")
@@ -156,7 +170,7 @@ def topic_submission():
                 st.warning("Please enter a valid topic.")
 
 
-def display_center_message():
+def display_center_message() -> None:
     """Display a grey message in the center of the screen for new users"""
     st.markdown(
         """
@@ -175,7 +189,7 @@ def display_center_message():
     )
 
 
-def main():
+def main() -> None:
     """Main function to render the Streamlit app."""
     st.title("Trend Getter")
 
