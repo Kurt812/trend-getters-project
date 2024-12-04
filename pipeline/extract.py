@@ -49,13 +49,13 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
         file_content = file_obj['Body'].read().decode('utf-8')
         for keyword in topic:
             if keyword in file_content:
-                logging.info(f"Keyword '{keyword}' found in {file_name}")
+                logging.info("Keyword '%s' found in %s", keyword, file_name)
                 return {
                     "Text": file_content,
                     "Keyword": keyword,
                 }
-    except Exception as e:
-        logging.info(f"Failed to fetch {file_name}: {e}")
+    except FileNotFoundError as e:
+        logging.error("No files found in S3: %s", e)
     return None
 
 def access_bluesky_files(s3: client, topic: list[str]) -> list[str]:
@@ -82,7 +82,7 @@ def access_bluesky_files(s3: client, topic: list[str]) -> list[str]:
 
     matching_texts = []
     with ThreadPoolExecutor(max_workers=40) as thread_pool:
-        submitted_tasks = [thread_pool.submit(fetch_file_content, s3, 
+        submitted_tasks = [thread_pool.submit(fetch_file_content, s3,
                                    file_name, topic) for file_name in file_names]
 
         for completed_task in as_completed(submitted_tasks):
@@ -105,13 +105,14 @@ def fetch_suggestions(pytrend: TrendReq, keyword: str):
     """Fetch and print suggestions for a given keyword."""
     return pytrend.suggestions(keyword=keyword)
 
-def main(topics: list[str]) -> pd.DataFrame:
-    extract_dataframe = create_dataframe(topics)
+def main(topic: list[str]) -> pd.DataFrame:
+    """Extracts data from S3 Bucket and google trends"""
+    extract_dataframe = create_dataframe(topic)
 
     pytrend = initialize_trend_request()
     extract_dataframe['related_terms'] = ""
 
-    for keyword in topics:
+    for keyword in topic:
         extract_dataframe.loc[extract_dataframe['Keyword']
                               == keyword, 'related_terms'] = ",".join(
             [suggestion['title'] for suggestion in fetch_suggestions(pytrend, keyword)]
@@ -120,6 +121,6 @@ def main(topics: list[str]) -> pd.DataFrame:
 
 if __name__ == "__main__":
     topics = ['wine','river']
-    extract_dataframe = main(topics)
+    extracted_dataframe = main(topics)
 
-    print(extract_dataframe)
+    print(extracted_dataframe)
