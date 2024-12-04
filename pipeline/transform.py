@@ -38,9 +38,9 @@ def get_cursor(connection: conn) -> curs:
 def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
     """Removes any rows that don't include the keywords and removes duplicate rows."""
 
-    filtered_bluesky = bluesky_data[bluesky_data['text'].str.contains(
+    filtered_bluesky = bluesky_data[bluesky_data['Text'].str.contains(
         r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
-    filtered_bluesky = bluesky_data[bluesky_data['keyword'].notnull()]
+    filtered_bluesky = bluesky_data[bluesky_data['Keyword'].notnull()]
     filtered_bluesky = bluesky_data.drop_duplicates()
 
     return filtered_bluesky
@@ -76,7 +76,7 @@ def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> p
 
     # Loop through the keywords and assign keyword_id to matching rows
     for keyword, keyword_id in keyword_map.items():
-        mask = cleaned_bluesky_data['keyword'].str.contains(
+        mask = cleaned_bluesky_data['Keyword'].str.contains(
             rf'\b{keyword}\b', case=False, na=False)
         cleaned_bluesky_data.loc[mask, 'keyword_id'] = keyword_id
 
@@ -87,7 +87,7 @@ def add_sentiment_scores(bluesky_data: pd.DataFrame) -> pd.DataFrame:
     """Find and add the sentiment scores of each message."""
     analyzer = SentimentIntensityAnalyzer()
 
-    bluesky_data['sentiment_score'] = bluesky_data['text'].apply(
+    bluesky_data['sentiment_score'] = bluesky_data['Text'].apply(
         lambda text: analyzer.polarity_scores(text)['compound'])
 
     return bluesky_data
@@ -97,28 +97,25 @@ def extract_keywords_from_csv(csv_file) -> pd.Series:
     """Extracts keywords from csv file"""
     bluesky_data = pd.read_csv(csv_file)
 
-    return bluesky_data['keyword'].unique()
+    return bluesky_data['Keyword'].unique()
 
 
-def main() -> None:
+def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     """Main function to run transform.py"""
     env_values = dotenv_values(".env")
 
     logging.info("Connecting to the trends RDS")
     connection = get_connection(env_values)
     cursor = get_cursor(connection)
-    logging.info("Loading raw data from test_content_data.csv")
-    content_dataframe = pd.read_csv(
-        "bluesky_output_data/bluesky_output_20241203_123034.csv")
-    keywords_from_csv = extract_keywords_from_csv(
-        "bluesky_output_data/bluesky_output_20241203_123034.csv")
+    keywords_from_dataframe = list(dataframe['Keyword'])
 
-    cleaned_dataframe = clean_data(content_dataframe, keywords_from_csv)
-    keyword_map = ensure_keywords_in_db(keywords_from_csv, cursor, connection)
+    cleaned_dataframe = clean_data(dataframe, keywords_from_dataframe)
+    keyword_map = ensure_keywords_in_db(
+        keywords_from_dataframe, cursor, connection)
     matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
     final_dataframe = add_sentiment_scores(matched_dataframe)
 
-    print(final_dataframe)
+    return final_dataframe
 
 
 if __name__ == "__main__":
