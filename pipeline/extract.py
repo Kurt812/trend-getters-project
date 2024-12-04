@@ -48,7 +48,8 @@ def initialize_trend_request() -> TrendReq:
 def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
     """Checks files from S3 for keywords and returns relevant data if keyword is found"""
     try:
-        file_obj = s3.get_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=file_name)
+        file_obj = s3.get_object(Bucket=os.environ.get(
+            "S3_BUCKET_NAME"), Key=file_name)
         file_content = file_obj['Body'].read().decode('utf-8')
         for keyword in topic:
             if keyword in file_content:
@@ -68,7 +69,7 @@ def extract_bluesky_files(s3: client, topic: list[str]) -> list[str]:
     file_names = []
 
     bucket_parameters = {'Bucket': os.environ.get("S3_BUCKET_NAME")}
-    #continously fetches .txt files from bucket until all files have been fetched
+    # continously fetches .txt files from bucket until all files have been fetched
     while True:
         if continuation_token:
             bucket_parameters['ContinuationToken'] = continuation_token
@@ -91,7 +92,7 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
     matching_texts = []
     with ThreadPoolExecutor(max_workers=40) as thread_pool:
         submitted_tasks = [thread_pool.submit(fetch_file_content, s3,
-                                   file_name, topic) for file_name in file_names]
+                                              file_name, topic) for file_name in file_names]
 
         for completed_task in as_completed(submitted_tasks):
             matching_result = completed_task.result()
@@ -125,13 +126,14 @@ def main(topic: list[str]) -> pd.DataFrame:
     for keyword in topic:
         extract_dataframe.loc[extract_dataframe['Keyword']
                               == keyword, 'Related Terms'] = ",".join(
-            [suggestion['title'] for suggestion in fetch_suggestions(pytrend, keyword)]
+            [suggestion['title']
+                for suggestion in fetch_suggestions(pytrend, keyword)]
         )
     return extract_dataframe
 
 
 if __name__ == "__main__":
-    topics = ['wine','river']
+    topics = ['wine', 'river']
     extracted_dataframe = main(topics)
 
     logging.info("\n %s", extracted_dataframe)
