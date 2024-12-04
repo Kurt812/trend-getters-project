@@ -4,4 +4,5 @@ python-dotenv
 vaderSentiment
 atproto
 certifi
+flask
 boto3
