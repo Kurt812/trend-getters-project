@@ -10,10 +10,8 @@ from psycopg2 import OperationalError, InterfaceError, DatabaseError
 from dotenv import load_dotenv
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
-from datetime import datetime
 
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -39,43 +37,43 @@ def setup_connection() -> None:
         return conn
     except OperationalError as oe:
         logging.error(
-            f"Operational error while connecting to the database: {oe}")
+            "Operational error while connecting to the database: %s", oe)
         raise
     except InterfaceError as ie:
         logging.error(
-            f"Interface error while connecting to the database: {ie}")
+            "Interface error while connecting to the database: %s", ie)
         raise
     except DatabaseError as de:
-        logging.error(f"Database error occurred: {de}")
+        logging.error("Database error occurred: %s", de)
         raise
     except Exception as e:
         logging.error(
-            f"Unexpected error while setting up the database connection: {e}")
+            "Unexpected error while setting up the database connection: %s", e)
         raise
 
 
 def create_query_list() -> list[str]:
     """Makes a list of the queries to extract data from the RDS"""
-    SCHEMA_NAME = ENV["SCHEMA_NAME"]
+    schema_name = ENV["SCHEMA_NAME"]
     return [
-        f"SELECT u.user_id, u.first_name, u.last_name, u.phone_number FROM {SCHEMA_NAME}.user u ORDER BY u.user_id ASC;",
+        f"SELECT u.user_id, u.first_name, u.last_name, u.phone_number FROM {schema_name}.user u ORDER BY u.user_id ASC;",
         f"""
         SELECT
             s.subscription_id, s.user_id, s.subscription_status,
             s.notification_threshold, s.keywords_id
         FROM
-            {SCHEMA_NAME}.subscription s
+            {schema_name}.subscription s
         JOIN
-            {SCHEMA_NAME}.user u ON s.user_id = u.user_id
+            {schema_name}.user u ON s.user_id = u.user_id
         ORDER BY u.user_id ASC;
         """,
-        f"SELECT k.keywords_id, k.keyword FROM {SCHEMA_NAME}.keywords k ORDER BY k.keywords_id ASC;",
-        f"SELECT rt.related_term_id, rt.related_term FROM {SCHEMA_NAME}.related_terms rt ORDER BY rt.related_term_id ASC;",
+        f"SELECT k.keywords_id, k.keyword FROM {schema_name}.keywords k ORDER BY k.keywords_id ASC;",
+        f"SELECT rt.related_term_id, rt.related_term FROM {schema_name}.related_terms rt ORDER BY rt.related_term_id ASC;",
         f"""
         SELECT
             rta.related_term_assignment, rta.keywords_id, rta.related_term_id
         FROM
-            {SCHEMA_NAME}.related_term_assignment rta
+            {schema_name}.related_term_assignment rta
         ORDER BY rta.related_term_assignment ASC;
         """,
         f"""
@@ -83,7 +81,7 @@ def create_query_list() -> list[str]:
             kr.keyword_recordings_id, kr.keywords_id, kr.total_mentions,
             kr.hour_of_day, kr.avg_sentiment
         FROM
-            {SCHEMA_NAME}.keyword_recordings kr
+            {schema_name}.keyword_recordings kr
         ORDER BY kr.keyword_recordings_id ASC;
         """
     ]
@@ -98,21 +96,21 @@ def download_csv_from_s3(bucket_name: str, file_name: str) -> pd.DataFrame:
     )
     try:
         s3.download_file(bucket_name, file_name, file_name)
-        logging.info(f"Downloaded {file_name} from S3.")
+        logging.info("Downloaded %s from S3.", file_name)
         return pd.read_csv(file_name)
     except FileNotFoundError as fe:
-        logging.warning(f"File {file_name} not found locally: {fe}")
+        logging.warning("File %s not found locally: %s", file_name, fe)
         return pd.DataFrame()
     except ClientError as ce:
         logging.warning(
-            f"Failed to download {file_name} from S3 (AWS Client Error): {ce}")
+            "Failed to download %s from S3 (AWS Client Error): %s", file_name, ce)
         return pd.DataFrame()
     except pd.errors.EmptyDataError as ede:
-        logging.warning(f"Downloaded file {file_name} is empty: {ede}")
+        logging.warning("Downloaded file %s is empty: %s", file_name, ede)
         return pd.DataFrame()
     except Exception as e:
         logging.error(
-            f"Unexpected error while downloading {file_name} from S3: {e}")
+            "Unexpected error while downloading %s from S3: %s", file_name, e)
         raise
 
 
@@ -125,68 +123,68 @@ def upload_to_s3(bucket_name: str, file_name: str, object_name: str) -> None:
     )
     try:
         s3.upload_file(file_name, bucket_name, object_name)
-        logging.info(
-            f"Uploaded {file_name} to s3://{bucket_name}/{object_name}")
+        logging.info("Uploaded %s to s3://%s/%s",
+                     file_name, bucket_name, object_name)
     except FileNotFoundError as fe:
-        logging.error(f"Local file {file_name} not found for upload: {fe}")
+        logging.error("Local file %s not found for upload: %s", file_name, fe)
         raise
     except NoCredentialsError as nce:
-        logging.error(f"AWS credentials not found: {nce}")
+        logging.error("AWS credentials not found: %s", nce)
         raise
     except ClientError as ce:
         logging.error(
-            f"Failed to upload {file_name} to S3 (AWS Client Error): {ce}")
+            "Failed to upload %s to S3 (AWS Client Error): %s", file_name, ce)
         raise
     except Exception as e:
         logging.error(
-            f"Unexpected error while uploading {file_name} to S3: {e}")
+            "Unexpected error while uploading %s to S3: %s", file_name, e)
         raise
 
 
 def delete_local_file(file_name: str) -> None:
+    """Deletes the files locally"""
     try:
         if os.path.exists(file_name):
             os.remove(file_name)
-            logging.info(f"Deleted local file: {file_name}")
+            logging.info("Deleted local file: %s", file_name)
         else:
-            logging.warning(f"File {file_name} does not exist.")
+            logging.warning("File %s does not exist.", file_name)
     except PermissionError as pe:
         logging.error(
-            f"Permission denied while trying to delete {file_name}: {pe}")
+            "Permission denied while trying to delete %s: %s", file_name, pe)
         raise
     except Exception as e:
-        logging.error(f"Unexpected error while deleting {file_name}: {e}")
+        logging.error("Unexpected error while deleting %s: %s", file_name, e)
         raise
 
 
-def fetch_subscription_data_from_rds(query: str, filename: str, bucket_name: str, folder_name: str):
+def fetch_subscription_data_from_rds(query: str, file_name: str, bucket_name: str, folder_name: str) -> None:
+    """Fetches the latest data from RDS"""
     conn = setup_connection()
     try:
         new_data = pd.read_sql(query, conn)
     except Exception as e:
-        logging.error(f"Error while executing query: {e}")
+        logging.error("Error while executing query: %s", e)
         raise
     finally:
         conn.close()
 
-    s3_file_path = f"{folder_name}/{filename}"
+    s3_file_path = f"{folder_name}/{file_name}"
     existing_data = download_csv_from_s3(bucket_name, s3_file_path)
 
     combined_data = pd.concat([existing_data, new_data]).drop_duplicates(
     ) if not existing_data.empty else new_data
-    combined_data.to_csv(filename, index=False)
+    combined_data.to_csv(file_name, index=False)
 
-    upload_to_s3(bucket_name, filename, s3_file_path)
-    delete_local_file(filename)
-
-    return combined_data
+    upload_to_s3(bucket_name, file_name, s3_file_path)
+    delete_local_file(file_name)
 
 
 if __name__ == "__main__":
     load_dotenv()
     query_list = create_query_list()
-    bucket_name = ENV["S3_BUCKET_NAME"]
-    folder_name = "long_term_keyword_data"
+    bucketname = ENV["S3_BUCKET_NAME"]
+    foldername = "long_term_keyword_data"
 
     for index, query in enumerate(query_list):
         filename = [
@@ -196,6 +194,6 @@ if __name__ == "__main__":
 
         try:
             fetch_subscription_data_from_rds(
-                query, filename, bucket_name, folder_name)
+                query, filename, bucketname, foldername)
         except Exception as e:
-            logging.error(f"Error processing {filename}: {e}")
+            logging.error("Error processing %s: %s", filename, e)

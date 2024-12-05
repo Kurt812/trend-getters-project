@@ -1,0 +1,18 @@
+2024-12-05 12:44:00,884 - WARNING - File long_term_keyword_data/user.csv not found locally: [Errno 2] No such file or directory: 'long_term_keyword_data/user.csv.B16C0deD'
+2024-12-05 12:44:00,949 - INFO - Uploaded user.csv to s3://trendgineers-test-bucket/long_term_keyword_data/user.csv
+2024-12-05 12:44:00,950 - INFO - Deleted local file: user.csv
+2024-12-05 12:44:01,076 - WARNING - File long_term_keyword_data/subscriptions.csv not found locally: [Errno 2] No such file or directory: 'long_term_keyword_data/subscriptions.csv.cFE023D1'
+2024-12-05 12:44:01,136 - INFO - Uploaded subscriptions.csv to s3://trendgineers-test-bucket/long_term_keyword_data/subscriptions.csv
+2024-12-05 12:44:01,137 - INFO - Deleted local file: subscriptions.csv
+2024-12-05 12:44:01,294 - WARNING - File long_term_keyword_data/keywords.csv not found locally: [Errno 2] No such file or directory: 'long_term_keyword_data/keywords.csv.9D0b206b'
+2024-12-05 12:44:01,359 - INFO - Uploaded keywords.csv to s3://trendgineers-test-bucket/long_term_keyword_data/keywords.csv
+2024-12-05 12:44:01,361 - INFO - Deleted local file: keywords.csv
+2024-12-05 12:44:01,526 - WARNING - File long_term_keyword_data/related_terms.csv not found locally: [Errno 2] No such file or directory: 'long_term_keyword_data/related_terms.csv.fc27a2B6'
+2024-12-05 12:44:01,599 - INFO - Uploaded related_terms.csv to s3://trendgineers-test-bucket/long_term_keyword_data/related_terms.csv
+2024-12-05 12:44:01,600 - INFO - Deleted local file: related_terms.csv
+2024-12-05 12:44:01,747 - WARNING - File long_term_keyword_data/terms_assignment.csv not found locally: [Errno 2] No such file or directory: 'long_term_keyword_data/terms_assignment.csv.ac0a0A9b'
+2024-12-05 12:44:01,816 - INFO - Uploaded terms_assignment.csv to s3://trendgineers-test-bucket/long_term_keyword_data/terms_assignment.csv
+2024-12-05 12:44:01,817 - INFO - Deleted local file: terms_assignment.csv
+2024-12-05 12:44:01,949 - WARNING - File long_term_keyword_data/keyword_recording.csv not found locally: [Errno 2] No such file or directory: 'long_term_keyword_data/keyword_recording.csv.beBb8B34'
+2024-12-05 12:44:02,019 - INFO - Uploaded keyword_recording.csv to s3://trendgineers-test-bucket/long_term_keyword_data/keyword_recording.csv
+2024-12-05 12:44:02,020 - INFO - Deleted local file: keyword_recording.csv
