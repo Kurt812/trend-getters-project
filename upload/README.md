@@ -5,7 +5,6 @@ This directory contains the necessary code to produce a Docker image to extract,
 ## Requirements 📋
 
 To run this script, you will need the following:
-- **Python**: Version 3.10.
 - `python-dotenv`: For loading environment variables from a `.env` file.
 - `psycopg2-binary`: For connecting, querying and modifying the PostgreSQL database.
 - `atproto`: For connecting to the BlueSky firehose to consume and parse real-time data streams.

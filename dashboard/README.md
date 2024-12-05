@@ -11,8 +11,6 @@ This folder contains all the code, documentation and resources necessary for the
 ## Requirements 📋
 
 To run this script and containerize into a docker image, you will need the following:
-
-- **Python**: Version 3.10
 - `python-dotenv`: For loading environment variables from a `.env` file.
 - `streamlit`: For creating an interactive web application for visualisations/
 - `altair`: For creating declarative statistical visualisations.
