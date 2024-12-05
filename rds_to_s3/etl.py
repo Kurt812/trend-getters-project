@@ -87,13 +87,18 @@ def create_query_list() -> list[str]:
     ]
 
 
-def download_csv_from_s3(bucket_name: str, file_name: str) -> pd.DataFrame:
-    """Downloads the current archive csv from S3"""
-    s3 = boto3.client(
+def s3_connection() -> boto3.client:
+    """Function connects to S3 and provides client to interact with it."""
+    return boto3.client(
         "s3",
         aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"]
     )
+
+
+def download_csv_from_s3(bucket_name: str, file_name: str) -> pd.DataFrame:
+    """Downloads the current archive csv from S3"""
+    s3 = s3_connection()
     try:
         s3.download_file(bucket_name, file_name, file_name)
         logging.info("Downloaded %s from S3.", file_name)
@@ -116,11 +121,7 @@ def download_csv_from_s3(bucket_name: str, file_name: str) -> pd.DataFrame:
 
 def upload_to_s3(bucket_name: str, file_name: str, object_name: str) -> None:
     """Uploads the updated archive files to the S3 bucket"""
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"]
-    )
+    s3 = s3_connection()
     try:
         s3.upload_file(file_name, bucket_name, object_name)
         logging.info("Uploaded %s to s3://%s/%s",
@@ -180,7 +181,8 @@ def fetch_subscription_data_from_rds(query: str, file_name: str, bucket_name: st
     delete_local_file(file_name)
 
 
-if __name__ == "__main__":
+def main():
+    """The main function that joins all the script functions"""
     load_dotenv()
     query_list = create_query_list()
     bucketname = ENV["S3_BUCKET_NAME"]
@@ -197,3 +199,7 @@ if __name__ == "__main__":
                 query, filename, bucketname, foldername)
         except Exception as e:
             logging.error("Error processing %s: %s", filename, e)
+
+
+if __name__ == "__main__":
+    main()
