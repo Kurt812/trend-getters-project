@@ -21,13 +21,20 @@ logging.basicConfig(
 
 def get_connection(config: dotenv_values) -> conn:
     """Importing the data into the database"""
-    return psycopg2.connect(
-        user=config["DB_USERNAME"],
-        password=config["DB_PASSWORD"],
-        host=config["DB_HOST"],
-        port=config["DB_PORT"],
-        database=config["DB_NAME"]
-    )
+    try:
+        con = psycopg2.connect(
+            user=config["DB_USERNAME"],
+            password=config["DB_PASSWORD"],
+            host=config["DB_HOST"],
+            port=config["DB_PORT"],
+            database=config["DB_NAME"]
+        )
+    except psycopg2.OperationalError as e:
+        logging.error(
+            "Operational error while connecting to the database: %s", e)
+        raise
+    logging.info("Connection successfully established to database.")
+    return con
 
 
 def get_cursor(connection: conn) -> curs:
