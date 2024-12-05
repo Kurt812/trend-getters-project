@@ -1,3 +1,5 @@
+"""Extracts necessary information from S3 Bucket"""
+
 from collections import defaultdict
 import os
 import logging
@@ -42,7 +44,7 @@ def s3_connection() -> client:
             aws_secret_access_key=aws_secret_key,
             config=config
         )
-    except Exception as e:
+    except ConnectionError as e:
         logging.error('An error occurred attempting to connect to S3: %s', e)
         return None
     return s3
@@ -122,7 +124,7 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
 
                 for keyword, count in extracted_data["Counts"].items():
                     hourly_data[hour][keyword] += count
-                
+
                 for keyword, sentiment_score in extracted_data["Sentiment Score"].items():
                     hourly_sentiments[hour][keyword].append(sentiment_score['compound'])
 
@@ -130,7 +132,8 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
     for hour, counts in hourly_data.items():
         for keyword, count in counts.items():
             average_sentiment = sum(hourly_sentiments[hour][keyword]) / len(hourly_sentiments[hour][keyword])
-            hourly_rows.append({"Hour": hour, "Keyword": keyword, "Count": count, "Average Sentiment" : average_sentiment})
+            hourly_rows.append({"Hour": hour, "Keyword": keyword,
+                                "Count": count, "Average Sentiment" : average_sentiment})
     mentions_per_hour = pd.DataFrame(hourly_rows)
 
     return mentions_per_hour
