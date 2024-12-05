@@ -103,7 +103,7 @@ def main(topic: list[str], extracted_dataframe: pd.DataFrame) -> None:
     load_dotenv()
     insert_keywords(conn, cursor, topic)
     insert_keyword_recordings(conn,cursor, extracted_dataframe)
-    related_term_ids = insert_related_terms(conn,cursor)
+    related_term_ids = insert_related_terms(conn,cursor, extracted_dataframe)
     insert_related_term_assignment(conn,cursor,related_term_ids)
 
 
