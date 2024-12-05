@@ -23,9 +23,6 @@ def add_topic():
     if not topic_name:
         return jsonify({"message": "Topic name is required"}), 400
 
-    if check_no_punctuation(topic_name):
-        return jsonify({"message": "No punctuation permitted in topic."}), 400
-
     topic = {
         "topic_name": topic_name,
     }

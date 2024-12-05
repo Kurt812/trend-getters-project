@@ -47,22 +47,3 @@ def test_more_than_one_word_topic(test_api):
         assert response.status_code == 200
         assert response.json['message'] == 'Topic added successfully'
         assert response.json['topic'] == {'topic_name': 'testing this'}
-
-
-def test_punctuation_is_found():
-    """Test if user enters in punctuation, then it is found in this function."""
-    topic = "Hello! World %^*"
-    result = check_no_punctuation(topic)
-    assert result is True
-
-
-@patch('api.main')
-def test_punctuation_returns_error(mock_main, test_api):
-    """Test if user enters in punctuation then error message is returned."""
-    fake_data = {
-        "topic_name": "Hello! World %^*"
-    }
-    response = test_api.post('/topics', json=fake_data)
-    assert response.status_code == 400
-    assert response.json['message'] == 'No punctuation permitted in topic.'
-    mock_main.assert_not_called()
