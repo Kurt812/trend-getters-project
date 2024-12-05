@@ -89,7 +89,9 @@ def create_query_list() -> list[str]:
 
 def download_csv_from_s3(bucket_name: str, file_name: str) -> pd.DataFrame:
     """Downloads the current archive csv from S3"""
-    s3 = boto3.client(
+def s3_connection() -> boto3.client:
+    """Function connects to S3 and provides client to interact with it."""
+    return boto3.client(
         "s3",
         aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"]
