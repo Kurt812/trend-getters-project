@@ -11,6 +11,43 @@ from dotenv import load_dotenv
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
+SCHEMA_NAME = ENV["SCHEMA_NAME"]
+QUERY_LIST = [
+    f"SELECT u.user_id, u.first_name, u.last_name, u.phone_number FROM {
+        SCHEMA_NAME}.user u ORDER BY u.user_id ASC
+    ",
+    f"""
+        SELECT
+            s.subscription_id, s.user_id, s.subscription_status,
+            s.notification_threshold, s.keywords_id
+        FROM
+            {SCHEMA_NAME}.subscription s
+        JOIN
+            {SCHEMA_NAME}.user u ON s.user_id = u.user_id
+        ORDER BY u.user_id ASC;
+        """,
+    f"SELECT k.keywords_id, k.keyword FROM {
+        SCHEMA_NAME}.keywords k ORDER BY k.keywords_id ASC
+    ",
+    f"SELECT rt.related_term_id, rt.related_term FROM {
+        SCHEMA_NAME}.related_terms rt ORDER BY rt.related_term_id ASC
+    ",
+    f"""
+        SELECT
+            rta.related_term_assignment, rta.keywords_id, rta.related_term_id
+        FROM
+            {SCHEMA_NAME}.related_term_assignment rta
+        ORDER BY rta.related_term_assignment ASC;
+        """,
+    f"""
+        SELECT
+            kr.keyword_recordings_id, kr.keywords_id, kr.total_mentions,
+            kr.hour_of_day, kr.avg_sentiment
+        FROM
+            {SCHEMA_NAME}.keyword_recordings kr
+        ORDER BY kr.keyword_recordings_id ASC;
+        """
+]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,41 +87,6 @@ def setup_connection() -> None:
         logging.error(
             "Unexpected error while setting up the database connection: %s", e)
         raise
-
-
-def create_query_list() -> list[str]:
-    """Makes a list of the queries to extract data from the RDS"""
-    schema_name = ENV["SCHEMA_NAME"]
-    return [
-        f"SELECT u.user_id, u.first_name, u.last_name, u.phone_number FROM {schema_name}.user u ORDER BY u.user_id ASC;",
-        f"""
-        SELECT
-            s.subscription_id, s.user_id, s.subscription_status,
-            s.notification_threshold, s.keywords_id
-        FROM
-            {schema_name}.subscription s
-        JOIN
-            {schema_name}.user u ON s.user_id = u.user_id
-        ORDER BY u.user_id ASC;
-        """,
-        f"SELECT k.keywords_id, k.keyword FROM {schema_name}.keywords k ORDER BY k.keywords_id ASC;",
-        f"SELECT rt.related_term_id, rt.related_term FROM {schema_name}.related_terms rt ORDER BY rt.related_term_id ASC;",
-        f"""
-        SELECT
-            rta.related_term_assignment, rta.keywords_id, rta.related_term_id
-        FROM
-            {schema_name}.related_term_assignment rta
-        ORDER BY rta.related_term_assignment ASC;
-        """,
-        f"""
-        SELECT
-            kr.keyword_recordings_id, kr.keywords_id, kr.total_mentions,
-            kr.hour_of_day, kr.avg_sentiment
-        FROM
-            {schema_name}.keyword_recordings kr
-        ORDER BY kr.keyword_recordings_id ASC;
-        """
-    ]
 
 
 def s3_connection() -> boto3.client:
@@ -184,11 +186,10 @@ def fetch_subscription_data_from_rds(query: str, file_name: str, bucket_name: st
 def main():
     """The main function that joins all the script functions"""
     load_dotenv()
-    query_list = create_query_list()
     bucketname = ENV["S3_BUCKET_NAME"]
     foldername = "long_term_keyword_data"
 
-    for index, query in enumerate(query_list):
+    for index, query in enumerate(QUERY_LIST):
         filename = [
             "user.csv", "subscriptions.csv", "keywords.csv",
             "related_terms.csv", "terms_assignment.csv", "keyword_recording.csv"
