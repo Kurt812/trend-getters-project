@@ -135,6 +135,7 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
 
     return mentions_per_hour
 
+
 def add_sentiment_scores(firehouse_text: str) -> float:
     """Find and add the sentiment scores of each message."""
     analyzer = SentimentIntensityAnalyzer()
