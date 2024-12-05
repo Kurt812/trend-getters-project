@@ -9,11 +9,6 @@ app = Flask(__name__)
 topics = []
 
 
-def check_no_punctuation(topic: str) -> bool:
-    """Function to return True if punctuation, False if else. Allowing hyphens."""
-    return bool(re.search(r"[!\"#$%&'()*+,./:;<=>?@[\]^_`{|}~]", topic))
-
-
 @app.route("/topics", methods=["POST"])
 def add_topic():
     """API endpoint to add new topics to RDS."""
