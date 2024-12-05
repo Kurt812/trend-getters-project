@@ -1,0 +1,10 @@
+pandas
+psycopg2-binary
+python-dotenv
+vaderSentiment
+atproto
+certifi
+flask
+boto3
+aioboto3
+freezegun
