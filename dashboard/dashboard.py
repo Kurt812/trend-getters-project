@@ -94,8 +94,8 @@ def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
 
 
 def is_valid_uk_phone_number(phone_number: str) -> bool:
-    """Check if the given phone number is a valid UK mobile number"""
-    pattern = r'^07\d{9}$'
+    """Check if the given phone number is a valid UK mobile number starting with +447"""
+    pattern = r'^\+447\d{9}$'
     return bool(re.match(pattern, phone_number))
 
 
@@ -175,7 +175,7 @@ def user_verification() -> None:
                 if not is_valid_uk_phone_number(phone_number):
                     st.session_state["user_verified"] = False
                     st.session_state["verification_error"] = (
-                        "Please enter a valid UK phone number (e.g., starting with 07 and 11 digits long)."
+                        "Please enter a valid UK phone number (e.g., starting with +447 and 9 digits after that)."
                     )
                 else:
                     insert_user(user_first, user_last, phone_number)
