@@ -15,9 +15,10 @@ pip3 install -r requirements.txt
 ```
 
 ## Files Explained 🗂️
-- **`clean.py`**: this python script cleans old files from an S3 bucket by checking the last modified date and deleting files older than a defined retention period (7 days). It uses AWS Lambda to perform the task and logs the results.
-- **`Dockerfile`**: this docker file creates an image for an AWS Lambda function with the necessary dependencies installed.
+- **`clean.py`**: this Python script cleans old files from an S3 bucket by checking the last modified date and deleting files older than a defined retention period (7 days). It uses AWS Lambda to perform the task and logs the results.
+- **`Dockerfile`**: this Docker file creates an image for an AWS Lambda function with the necessary dependencies installed.
 - **`requirements.txt`**: this project requires specific Python libraries to run correctly. These dependencies are listed in this file and are needed to ensure your environment matches the project's environment requirements.
+- **`test_clean.py`**: this Python test script tests `clean.py` and its core components including the deletion of objects from an S3 bucket.
 
 ## Secrets Management 🕵🏽‍♂️
 Before running the script, you need to set up your AWS credentials. Create a new file called `.env` in the `clean` directory and add the following lines, with your actual AWS keys and database details:
