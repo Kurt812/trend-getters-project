@@ -4,7 +4,7 @@
 import pytest
 from unittest.mock import patch
 
-from api import app, check_no_punctuation
+from api import app
 
 
 @pytest.fixture
