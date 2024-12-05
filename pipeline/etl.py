@@ -3,12 +3,11 @@ from extract import main as emain
 from transform import main as tmain
 
 def main(topic: list[str]) -> pd.DataFrame:
-    extract_df, mentions_per_hour = emain(topic)
-    transform_df = tmain(extract_df)
-    return transform_df, mentions_per_hour
+    mentions_per_hour = emain(topic)
+    transform_df = tmain(mentions_per_hour)
+    return transform_df
 
 if __name__ == "__main__":
     topic = ['island','darkness']
-    df, hourly_statistics = main(topic)
-    print(df)
+    hourly_statistics = main(topic)
     print(hourly_statistics)

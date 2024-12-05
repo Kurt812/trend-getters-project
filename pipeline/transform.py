@@ -35,17 +35,6 @@ def get_cursor(connection: conn) -> curs:
     return connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 
-def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
-    """Removes any rows that don't include the keywords and removes duplicate rows."""
-
-    filtered_bluesky = bluesky_data[bluesky_data['Text'].str.contains(
-        r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
-    filtered_bluesky = bluesky_data[bluesky_data['Keyword'].notnull()]
-    filtered_bluesky = bluesky_data.drop_duplicates()
-
-    return filtered_bluesky
-
-
 def ensure_keywords_in_db(keywords: list, cursor: curs, connection: conn) -> dict:
     """Ensure all keywords are present in the database. Add missing keywords."""
     cursor.execute("SET search_path TO trendgineers;")
@@ -99,10 +88,9 @@ def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     cursor = get_cursor(connection)
     keywords_from_dataframe = list(dataframe['Keyword'])
 
-    cleaned_dataframe = clean_data(dataframe, keywords_from_dataframe)
     keyword_map = ensure_keywords_in_db(
         keywords_from_dataframe, cursor, connection)
-    matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
+    matched_dataframe = keyword_matching(dataframe, keyword_map)
 
     return matched_dataframe
 

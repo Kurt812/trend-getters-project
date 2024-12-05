@@ -83,7 +83,6 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
         file_content = file_obj['Body'].read().decode('utf-8')
         hour_folder = file_name.split('/')[-2]  # Extracts the hour folder (e.g., "16/")
 
-        extracted_texts = []
         keyword_counts = defaultdict(int)
         sentiment_scores = defaultdict(int)
 
@@ -91,13 +90,11 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
             count = file_content.count(keyword)
             if count > 0:
                 logging.info("Keyword %s found in %s %d times", keyword, file_name, count)
-                extracted_texts.append({"Text": file_content, "Keyword": keyword})
                 sentiment_scores[keyword] = add_sentiment_scores(file_content)
                 keyword_counts[keyword] += count
 
         return {
             "Hour": hour_folder,
-            "Extracted Texts": extracted_texts,
             "Counts": dict(keyword_counts),
             "Sentiment Score" : sentiment_scores
         }
@@ -109,9 +106,8 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
 
     return None
 
-def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]) -> pd.DataFrame:
     """Uses multi-threading to extract matching text and keyword counts from S3 files"""
-    extracted_texts = []
     hourly_data = defaultdict(lambda: defaultdict(int))
     hourly_sentiments = defaultdict(lambda: defaultdict(list))
 
@@ -123,16 +119,12 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
             extracted_data = completed_task.result()
             if extracted_data:
                 hour = extracted_data["Hour"]
-                extracted_texts.extend(extracted_data["Extracted Texts"])
 
                 for keyword, count in extracted_data["Counts"].items():
                     hourly_data[hour][keyword] += count
                 
                 for keyword, sentiment_score in extracted_data["Sentiment Score"].items():
                     hourly_sentiments[hour][keyword].append(sentiment_score['compound'])
-                    
-
-    matching_texts = pd.DataFrame(extracted_texts)
 
     hourly_rows = []
     for hour, counts in hourly_data.items():
@@ -141,7 +133,7 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
             hourly_rows.append({"Hour": hour, "Keyword": keyword, "Count": count, "Average Sentiment" : average_sentiment})
     mentions_per_hour = pd.DataFrame(hourly_rows)
 
-    return matching_texts, mentions_per_hour
+    return mentions_per_hour
 
 def add_sentiment_scores(firehouse_text: str) -> float:
     """Find and add the sentiment scores of each message."""
@@ -150,12 +142,32 @@ def add_sentiment_scores(firehouse_text: str) -> float:
     return analyzer.polarity_scores(firehouse_text)
 
 
-def main(topic: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def initialize_trend_request() -> TrendReq:
+    """Initialize and return a TrendReq object."""
+    return TrendReq()
+
+
+def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[dict]:
+    """Fetch and print suggestions for a given keyword."""
+    return pytrend.suggestions(keyword=keyword)
+
+
+def main(topic: list[str]) -> pd.DataFrame:
     """Extracts data from S3 Bucket and creates two summary DataFrames"""
     s3 = s3_connection()
     filenames = extract_bluesky_files(s3)
-    matching_texts, hourly_statistics = multi_threading_matching(s3, topic, filenames)
-    return matching_texts, hourly_statistics
+    hourly_statistics = multi_threading_matching(s3, topic, filenames)
+    hourly_statistics['Related Terms'] = ""
+
+    pytrend = initialize_trend_request()
+    for keyword in topic:
+        hourly_statistics.loc[hourly_statistics['Keyword']
+                              == keyword, 'Related Terms'] = ",".join(
+            [suggestion['title']
+                for suggestion in fetch_suggestions(pytrend, keyword)]
+        )
+    return hourly_statistics
+
 
 if __name__ == "__main__":
     topics = ['sun','rain']
