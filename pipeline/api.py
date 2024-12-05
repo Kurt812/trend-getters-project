@@ -10,7 +10,7 @@ topics = []
 
 
 @app.route("/topics", methods=["POST"])
-def add_topic():
+def add_topic()-> None:
     """API endpoint to add new topics to RDS."""
     data = request.get_json()
     topic_name = data.get("topic_name")
