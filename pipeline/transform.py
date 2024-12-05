@@ -35,17 +35,6 @@ def get_cursor(connection: conn) -> curs:
     return connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 
-def clean_data(bluesky_data: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
-    """Removes any rows that don't include the keywords and removes duplicate rows."""
-
-    filtered_bluesky = bluesky_data[bluesky_data['Text'].str.contains(
-        r'\b(?:' + '|'.join(keywords) + r')\b', case=False, na=False, regex=True)]
-    filtered_bluesky = bluesky_data[bluesky_data['Keyword'].notnull()]
-    filtered_bluesky = bluesky_data.drop_duplicates()
-
-    return filtered_bluesky
-
-
 def ensure_keywords_in_db(keywords: list, cursor: curs, connection: conn) -> dict:
     """Ensure all keywords are present in the database. Add missing keywords."""
     cursor.execute("SET search_path TO trendgineers;")
@@ -83,16 +72,6 @@ def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> p
     return cleaned_bluesky_data
 
 
-def add_sentiment_scores(bluesky_data: pd.DataFrame) -> pd.DataFrame:
-    """Find and add the sentiment scores of each message."""
-    analyzer = SentimentIntensityAnalyzer()
-
-    bluesky_data['sentiment_score'] = bluesky_data['Text'].apply(
-        lambda text: analyzer.polarity_scores(text)['compound'])
-
-    return bluesky_data
-
-
 def extract_keywords_from_csv(csv_file) -> pd.Series:
     """Extracts keywords from csv file"""
     bluesky_data = pd.read_csv(csv_file)
@@ -109,13 +88,11 @@ def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     cursor = get_cursor(connection)
     keywords_from_dataframe = list(dataframe['Keyword'])
 
-    cleaned_dataframe = clean_data(dataframe, keywords_from_dataframe)
     keyword_map = ensure_keywords_in_db(
         keywords_from_dataframe, cursor, connection)
-    matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
-    final_dataframe = add_sentiment_scores(matched_dataframe)
+    matched_dataframe = keyword_matching(dataframe, keyword_map)
 
-    return final_dataframe
+    return matched_dataframe
 
 
 if __name__ == "__main__":
