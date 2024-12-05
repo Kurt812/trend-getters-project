@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 
 def s3_connection() -> client:
-    """Connects to an S3"""
+    """Connects to an S3 and configs S3 Connection"""
     config = Config(
         connect_timeout=5,
         read_timeout=10,
@@ -86,25 +86,20 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
         extracted_texts = []
         keyword_counts = defaultdict(int)
         sentiment_scores = defaultdict(int)
-        filtered_sentiment_scores = {}
 
         for keyword in topic:
             count = file_content.count(keyword)
             if count > 0:
-                logging.info("Keyword '%s' found %d times in %s", keyword, count, file_name)
+                logging.info("Keyword %s found in %s %d times", keyword, file_name, count)
                 extracted_texts.append({"Text": file_content, "Keyword": keyword})
                 sentiment_scores[keyword] = add_sentiment_scores(file_content)
                 keyword_counts[keyword] += count
-        
-        for key, value in sentiment_scores.items():
-            if value:
-                filtered_sentiment_scores[key] = value
 
         return {
             "Hour": hour_folder,
             "Extracted Texts": extracted_texts,
             "Counts": dict(keyword_counts),
-            "Sentiment Score" : filtered_sentiment_scores
+            "Sentiment Score" : sentiment_scores
         }
 
     except ClientError as e:
