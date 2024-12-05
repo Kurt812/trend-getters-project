@@ -1,7 +1,7 @@
 resource "aws_security_group" "rds_sg"{
     name = "c14-trend-getter-rds-sg"
     description = "Security group for trend getter RDS database."
-    vpc_id = var.vpc_id
+    vpc_id = var.VPC_ID
 
   ingress {
     description      = "Allow SSH"
@@ -32,9 +32,9 @@ resource "aws_db_instance" "trend_getter_db" {
   allocated_storage    = 20
   engine               = "postgres"
   instance_class       = var.db_instance_class
-  db_name              = var.db_name
-  username             = var.db_username
-  password             = var.db_password
+  db_name              = var.DB_NAME
+  username             = var.DB_USERNAME
+  password             = var.DB_PASSWORD
   publicly_accessible  = true
   skip_final_snapshot  = true
   storage_type         = "gp2"
