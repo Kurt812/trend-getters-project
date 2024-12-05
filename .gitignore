@@ -91,4 +91,7 @@ venv/
 .venv
 .env
 .coverage
-.csv
+*.csv
+
+bluesky_output_data
+rds_to_s3
