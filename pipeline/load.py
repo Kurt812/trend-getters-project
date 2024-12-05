@@ -1,3 +1,4 @@
+"""Script to load data into RDS"""
 from os import environ as ENV
 import psycopg2
 import psycopg2.extras
@@ -7,6 +8,7 @@ from transform import main as optimus_prime
 
 
 def setup_connection():
+    """Retrieve database connection and cursor"""
     conn = psycopg2.connect(
         user=ENV["DB_USERNAME"],
         password=ENV["DB_PASSWORD"],
@@ -41,6 +43,7 @@ def insert_keywords(conn, cursor, topics: list[str]) -> list[int]:
 
 
 def main(topics: list[str]):
+    """Main function to load environment variables to import data into the database."""
     conn, cursor = setup_connection()
     load_dotenv()
     keyword_ids = insert_keywords(conn, cursor, topics)
@@ -53,6 +56,3 @@ if __name__ == "__main__":
     extracted_dataframe = downloader(topics)
     final_dataframe = optimus_prime(extracted_dataframe)
     final_dataframe.to_csv("output.csv", index=False)
-    # unique_names = final_datafram["keyword_id"].unique()
-    # print(unique_names)
-    # main('book')
