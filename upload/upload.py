@@ -28,6 +28,7 @@ logging.basicConfig(
     ]
 )
 
+
 class JSONExtra(json.JSONEncoder):
     """Serializes raw objects (including CID-Content Identifier) as strings."""
 
@@ -84,6 +85,7 @@ def get_firehose_data(message: bytes) -> None:
                 if firehose_text is not None:
                     logging.info('Extracted text: %s', firehose_text)
                     upload_to_s3(firehose_text)
+
 
 def start_firehose_extraction(firehose_client: FirehoseSubscribeReposClient) -> None:
     """Starts the Bluesky firehose extraction"""
