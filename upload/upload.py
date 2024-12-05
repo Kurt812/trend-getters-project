@@ -41,9 +41,23 @@ class JSONExtra(json.JSONEncoder):
 
 def s3_connection() -> connection:
     """Connects to an S3"""
-    s3 = client("s3", aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
-    return s3
+    try:
+        aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        if not aws_access_key_id or not aws_secret_access_key:
+            logging.error("Missing required AWS credentials in .env file.")
+            raise ValueError("Missing AWS credentials.")
+
+        s3 = client("s3", aws_access_key_id,
+                    aws_secret_access_key)
+        return s3
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        logging.error("A BotoCore error occurred: %s", e)
+        raise
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while connecting to S3: %s", e)
+        raise
 
 
 def format_text(text: str) -> str:
@@ -124,6 +138,7 @@ def upload_to_s3(content: str) -> None:
         logging.info("Uploaded to S3: %s", s3_key)
     except (NoCredentialsError, PartialCredentialsError) as e:
         logging.error("S3 credentials error: %s", e)
+        raise
 
 
 if __name__ == "__main__":
