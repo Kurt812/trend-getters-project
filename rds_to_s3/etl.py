@@ -118,11 +118,7 @@ def s3_connection() -> boto3.client:
 
 def upload_to_s3(bucket_name: str, file_name: str, object_name: str) -> None:
     """Uploads the updated archive files to the S3 bucket"""
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"]
-    )
+    s3 = s3_connection()
     try:
         s3.upload_file(file_name, bucket_name, object_name)
         logging.info("Uploaded %s to s3://%s/%s",
