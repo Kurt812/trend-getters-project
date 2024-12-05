@@ -52,13 +52,12 @@ def insert_keyword_recordings(conn: connect,
         conn.commit()
 
 
-def insert_related_terms(conn: connect, cursor: curs) -> dict:
+def insert_related_terms(conn: connect, cursor: curs, extracted_dataframe: pd.DataFrame) -> dict:
     """Inserts unique related terms into the related terms table"""
-    dataframe = pd.read_csv("output.csv")
     keyword_and_ids = {}
     processed_terms = set()
 
-    for row in dataframe.to_dict(orient='records'):
+    for row in extracted_dataframe.to_dict(orient='records'):
         related_terms = row['Related Terms'].split(",")
         keyword = row['Keyword']
 
