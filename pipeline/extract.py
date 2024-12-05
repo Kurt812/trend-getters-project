@@ -71,7 +71,6 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
                     "Text": file_content,
                     "Keyword": keyword,
                 }
-        logging.error("No keyword found in file %s", file_name)
     except ClientError as e:
         if e.response['Error']['Code'] == 'NoSuchKey':
             logging.error("No files found in S3: %s", e)
@@ -155,7 +154,7 @@ def main(topic: list[str]) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    topics = ['good', 'river']
+    topics = ['good', 'bad']
     extracted_dataframe = main(topics)
 
     logging.info("\n %s", extracted_dataframe)
