@@ -123,12 +123,13 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
 
     original_df = pd.DataFrame(extracted_texts)
 
-    hourly_rows = [{"Hour": hour, "Keyword": keyword, "Count": count}
-                   for hour, counts in hourly_data.items()
-                   for keyword, count in counts.items()]
-    hourly_counts_df = pd.DataFrame(hourly_rows)
+    hourly_rows = []
+    for hour, counts in hourly_data.items():
+        for keyword, count in counts.items():
+            hourly_rows.append({"Hour": hour, "Keyword": keyword, "Count": count})
+    mentions_per_hour = pd.DataFrame(hourly_rows)
 
-    return original_df, hourly_counts_df
+    return original_df, mentions_per_hour
 
 def create_dataframes(topic: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Main function to extract data and return two DataFrames: original and hourly counts"""
