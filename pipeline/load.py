@@ -32,7 +32,7 @@ def insert_keywords(conn: connect, cursor: curs,
 
         if existing_id is None:
             cursor.execute("""INSERT INTO keywords (keyword)
-                            VALUES (%s) RETURNING keywords_id""", (keyword,))
+                            VALUES (%s)""", (keyword,))
             conn.commit()
 
 
