@@ -21,8 +21,8 @@ def import_kiosk_data_into_database(keyword: str):
     conn.commit()
 
 
-def main(keyword: str):
-
+def main(keyword: str) -> None:
+    """Main function to load environment variables to import data into the database."""
     load_dotenv()
     import_kiosk_data_into_database(keyword)
 
