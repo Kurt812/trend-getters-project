@@ -29,7 +29,7 @@ def add_topic():
 
 
 @app.route("/topics", methods=["GET"])
-def get_topics():
+def get_topics()-> None:
     """API endpoint to retrieve list of all posted topics."""
     return jsonify({"topics": topics}), 200
 
