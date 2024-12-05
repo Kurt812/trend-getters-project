@@ -1,11 +1,17 @@
 """Api.py: script setting up api to post new topics to."""
 
+import re
 from flask import Flask, request, jsonify
 from load import main
 
 app = Flask(__name__)
 
 topics = []
+
+
+def check_no_punctuation(topic: str) -> bool:
+    """Function to return True if punctuation, False if else. Allowing hyphens."""
+    return bool(re.search(r"[!\"#$%&'()*+,./:;<=>?@[\]^_`{|}~]", topic))
 
 
 @app.route("/topics", methods=["POST"])
@@ -16,6 +22,9 @@ def add_topic():
 
     if not topic_name:
         return jsonify({"message": "Topic name is required"}), 400
+
+    if check_no_punctuation(topic_name):
+        return jsonify({"message": "No punctuation permitted in topic."}), 400
 
     topic = {
         "topic_name": topic_name,

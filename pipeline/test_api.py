@@ -4,7 +4,7 @@
 import pytest
 from unittest.mock import patch
 
-from api import app
+from api import app, check_no_punctuation
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def test_successful_post_request(test_api):
     """Test successful post request yields expected results."""
     with patch('api.main') as mock_main:
         fake_data = {
-            'topic_name': 'test'
+            "topic_name": "test"
         }
 
         response = test_api.post('/topics', json=fake_data)
@@ -35,15 +35,34 @@ def test_unsuccessful_post_missing_topic(test_api):
     assert response.json['message'] == 'Topic name is required'
 
 
-# def test_add_multiple_topics(client):
-#     data_1 = {"topic_name": "Science"}
-#     data_2 = {"topic_name": "Art"}
+def test_more_than_one_word_topic(test_api):
+    """Test scenario when user-submitted topic contains more than one word."""
 
-#     response_1 = client.post("/topics", json=data_1)
-#     response_2 = client.post("/topics", json=data_2)
+    with patch('api.main') as mock_main:
+        fake_data = {
+            "topic_name": "testing this"
+        }
+        response = test_api.post('/topics', json=fake_data)
+        mock_main.assert_called_once_with(['testing this'])
+        assert response.status_code == 200
+        assert response.json['message'] == 'Topic added successfully'
+        assert response.json['topic'] == {'topic_name': 'testing this'}
 
-#     assert response_1.status_code == 200
-#     assert response_2.status_code == 200
-#     assert len(topics) == 2
-#     assert topics[0]["topic_name"] == "Science"
-#     assert topics[1]["topic_name"] == "Art"
+
+def test_punctuation_is_found():
+    """Test if user enters in punctuation, then it is found in this function."""
+    topic = "Hello! World %^*"
+    result = check_no_punctuation(topic)
+    assert result is True
+
+
+@patch('api.main')
+def test_punctuation_returns_error(mock_main, test_api):
+    """Test if user enters in punctuation then error message is returned."""
+    fake_data = {
+        "topic_name": "Hello! World %^*"
+    }
+    response = test_api.post('/topics', json=fake_data)
+    assert response.status_code == 400
+    assert response.json['message'] == 'No punctuation permitted in topic.'
+    mock_main.assert_not_called()
