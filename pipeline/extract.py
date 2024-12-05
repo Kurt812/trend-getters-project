@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 import pandas as pd
 from dotenv import load_dotenv
 from pytrends.request import TrendReq
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 load_dotenv(".env")
 
@@ -84,17 +85,26 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
 
         extracted_texts = []
         keyword_counts = defaultdict(int)
+        sentiment_scores = defaultdict(int)
+        filtered_sentiment_scores = {}
+
         for keyword in topic:
             count = file_content.count(keyword)
             if count > 0:
                 logging.info("Keyword '%s' found %d times in %s", keyword, count, file_name)
                 extracted_texts.append({"Text": file_content, "Keyword": keyword})
+                sentiment_scores[keyword] = add_sentiment_scores(file_content)
                 keyword_counts[keyword] += count
+        
+        for key, value in sentiment_scores.items():
+            if value:
+                filtered_sentiment_scores[key] = value
 
         return {
             "Hour": hour_folder,
             "Extracted Texts": extracted_texts,
-            "Counts": dict(keyword_counts)
+            "Counts": dict(keyword_counts),
+            "Sentiment Score" : filtered_sentiment_scores
         }
 
     except ClientError as e:
@@ -108,42 +118,52 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
     """Uses multi-threading to extract matching text and keyword counts from S3 files"""
     extracted_texts = []
     hourly_data = defaultdict(lambda: defaultdict(int))
+    hourly_sentiments = defaultdict(lambda: defaultdict(list))
 
     with ThreadPoolExecutor(max_workers=40) as thread_pool:
         submitted_tasks = [thread_pool.submit(fetch_file_content, s3, file_name, topic)
                            for file_name in file_names]
 
         for completed_task in as_completed(submitted_tasks):
-            result = completed_task.result()
-            if result:
-                hour = result["Hour"]
-                extracted_texts.extend(result["Extracted Texts"])
-                for keyword, count in result["Counts"].items():
-                    hourly_data[hour][keyword] += count
+            extracted_data = completed_task.result()
+            if extracted_data:
+                hour = extracted_data["Hour"]
+                extracted_texts.extend(extracted_data["Extracted Texts"])
 
-    original_df = pd.DataFrame(extracted_texts)
+                for keyword, count in extracted_data["Counts"].items():
+                    hourly_data[hour][keyword] += count
+                
+                for keyword, sentiment_score in extracted_data["Sentiment Score"].items():
+                    hourly_sentiments[hour][keyword].append(sentiment_score['compound'])
+                    
+
+    matching_texts = pd.DataFrame(extracted_texts)
 
     hourly_rows = []
     for hour, counts in hourly_data.items():
         for keyword, count in counts.items():
-            hourly_rows.append({"Hour": hour, "Keyword": keyword, "Count": count})
+            average_sentiment = sum(hourly_sentiments[hour][keyword]) / len(hourly_sentiments[hour][keyword])
+            hourly_rows.append({"Hour": hour, "Keyword": keyword, "Count": count, "Average Sentiment" : average_sentiment})
     mentions_per_hour = pd.DataFrame(hourly_rows)
 
-    return original_df, mentions_per_hour
+    return matching_texts, mentions_per_hour
 
-def create_dataframes(topic: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Main function to extract data and return two DataFrames: original and hourly counts"""
-    s3 = s3_connection()
-    filenames = extract_bluesky_files(s3)
-    return multi_threading_matching(s3, topic, filenames)
+def add_sentiment_scores(firehouse_text: str) -> float:
+    """Find and add the sentiment scores of each message."""
+    analyzer = SentimentIntensityAnalyzer()
+
+    return analyzer.polarity_scores(firehouse_text)
+
 
 def main(topic: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Extracts data from S3 Bucket and creates two summary DataFrames"""
-    original_df, hourly_counts_df = create_dataframes(topic)
-    return original_df, hourly_counts_df
+    s3 = s3_connection()
+    filenames = extract_bluesky_files(s3)
+    matching_texts, hourly_statistics = multi_threading_matching(s3, topic, filenames)
+    return matching_texts, hourly_statistics
 
 if __name__ == "__main__":
-    topics = ['good', 'bad']
+    topics = ['sun','rain']
     extracted_dataframe, hourly_counts_dataframe = main(topics)
     logging.info("\nExtracted Dataframe:\n%s", extracted_dataframe)
     logging.info("\nHourly Counts Dataframe:\n%s", hourly_counts_dataframe)

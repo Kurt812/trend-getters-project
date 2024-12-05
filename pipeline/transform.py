@@ -83,16 +83,6 @@ def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> p
     return cleaned_bluesky_data
 
 
-def add_sentiment_scores(bluesky_data: pd.DataFrame) -> pd.DataFrame:
-    """Find and add the sentiment scores of each message."""
-    analyzer = SentimentIntensityAnalyzer()
-
-    bluesky_data['sentiment_score'] = bluesky_data['Text'].apply(
-        lambda text: analyzer.polarity_scores(text)['compound'])
-
-    return bluesky_data
-
-
 def extract_keywords_from_csv(csv_file) -> pd.Series:
     """Extracts keywords from csv file"""
     bluesky_data = pd.read_csv(csv_file)
@@ -113,9 +103,8 @@ def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     keyword_map = ensure_keywords_in_db(
         keywords_from_dataframe, cursor, connection)
     matched_dataframe = keyword_matching(cleaned_dataframe, keyword_map)
-    final_dataframe = add_sentiment_scores(matched_dataframe)
 
-    return final_dataframe
+    return matched_dataframe
 
 
 if __name__ == "__main__":
