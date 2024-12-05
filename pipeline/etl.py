@@ -1,14 +1,15 @@
-import pandas as pd
-from extract import main as emain
-from transform import main as tmain
-from load import main as lmain
+"""A script to run an ETL pipeline"""
 
-def main(topic: list[str]) -> pd.DataFrame:
-    mentions_per_hour = emain(topic)
-    transform_df = tmain(mentions_per_hour)
-    lmain(topic, transform_df)
-    return transform_df
+from extract import main as extract_main
+from transform import main as transform_main
+from load import main as load_main
+
+def main(topic: list[str]) -> None:
+    """Runs pipeline through extract, transform and load"""
+    mentions_per_hour = extract_main(topic)
+    transform_df = transform_main(mentions_per_hour)
+    load_main(topic, transform_df)
 
 if __name__ == "__main__":
-    topic = ['clouds','strawberries']
+    topic = ['lonely']
     main(topic)
