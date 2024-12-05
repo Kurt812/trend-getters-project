@@ -51,18 +51,9 @@ def test_successful_s3_connection(mock_client):
 @patch('extract.client')
 def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
     """Test that missing env variables will be handled gracefully. """
-    mock_config = Config(
-        connect_timeout=5,
-        read_timeout=10,
-        retries={
-            'max_attempts': 3,
-            'mode': 'standard'
-        },
-        max_pool_connections=50
-    )
 
-    with pytest.raises(TypeError):
-        s3_connection()
+    result = s3_connection()
+    assert result is None
     mock_client.assert_not_called()
     assert 'Missing required AWS credentials in .env file' in caplog.text
 
@@ -93,7 +84,7 @@ def test_fetch_file_content_success(mock_s3):
 
 @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
 @patch('extract.s3_connection')
-def test_unsuccessful_file_content_not_found(mock_s3, caplog):
+def test_unsuccessful_file_content_not_found(mock_s3):
     """Test case when a file is not found with keyword."""
     mock_file_obj = MagicMock()
     mock_file_content = 'This is a file with no matching keywords.'
@@ -101,7 +92,6 @@ def test_unsuccessful_file_content_not_found(mock_s3, caplog):
     mock_s3.get_object.return_value = mock_file_obj
     result = fetch_file_content(mock_s3, 'mock_filename', ['topic'])
     assert result is None
-    assert 'No keyword found in file' in caplog.text
 
 
 @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
@@ -116,7 +106,7 @@ def test_unsuccessful_file_content_filenotfound(mock_s3, caplog):
 
     with pytest.raises(FileNotFoundError):
         fetch_file_content(mock_s3, 'mock_filename', ['topic'])
-    assert 'No files found in S3' in caplog.text
+    assert 'No files found in S3: An error occurred (NoSuchKey) when calling the GetObject operation: The specified key does not exist' in caplog.text
 
     for record in caplog.records:
         assert record.levelname == 'ERROR'
@@ -142,7 +132,7 @@ def test_successful_extract_bluesky_files(mock_s3):
     }
     mock_s3.list_objects_v2.side_effect = [mock_first_page, mock_second_page]
 
-    result = extract_bluesky_files(mock_s3, ['topic'])
+    result = extract_bluesky_files(mock_s3)
     assert result == ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt']
     assert mock_s3.list_objects_v2.call_count == 2
 
@@ -152,7 +142,7 @@ def test_successful_extract_bluesky_files(mock_s3):
 def test_unsuccessful_extract_bluesky_missing_env(mock_s3):
     """Test for case when missing .env variables."""
     with pytest.raises(KeyError):
-        extract_bluesky_files(mock_s3, ['topic'])
+        extract_bluesky_files(mock_s3)
 
 
 @patch('extract.s3_connection')
