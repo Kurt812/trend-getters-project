@@ -36,6 +36,7 @@ pip3 install -r requirements.txt
 - **`schema.sql`**: this SQL file that defines the database schema and creates the necessary tables. It also seeds the data_source table with predefined known data sources and defines relationships between tables.
 - **`test_api.py`**: this is a Python test script that tests the various components of the 'POST' API endpoint such as ensuring a topic name a call to upload the topic to the RDS is made.
 - **`test_extract.py`**: this is a Python test script that looks to test key functionalities of the `extract.py` such as the connection to the BlueSky firehose and the successful identification of topic words in posts.
+- **`test_transform.py`**: this is a Python test script that verifies the correct functionality of the `transform.py` file including PostgreSQL connection, RDS checks for the presence of incoming keywords and the extraction of keywords from csvs.  
 - **`transform.py`**: this Python script retrieves raw data, removes duplicates, assigns keyword IDs, computes sentiment scores using VADER, and outputs a processed DataFrame.
 
 ## Secrets Management 🕵🏽‍♂️

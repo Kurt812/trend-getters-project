@@ -8,9 +8,14 @@ from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from clean import (s3_connection, lambda_handler)
 
 
-@patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
+@pytest.fixture
+def aws_env_vars():
+    with patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "fake_access_key", "AWS_SECRET_ACCESS_KEY": "fake_secret_key"}):
+        yield
+
+
 @patch('clean.client')
-def test_successful_s3_connection(mock_client):
+def test_successful_s3_connection(mock_client, aws_env_vars):
     """Test the successful connection to an S3 client without real-world side effects."""
 
     s3_connection()
@@ -44,9 +49,9 @@ def test_s3_connection_raises_nocredentialserror(mock_client, caplog):
         's3', 'fake_access_key', 'fake_secret_key')
 
 
-@patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
+
 @patch('clean.client')
-def test_s3_connection_raises_partialcredentialserror(mock_client, caplog):
+def test_s3_connection_raises_partialcredentialserror(mock_client, aws_env_vars, caplog):
     """Test that s3 connection function can and will raise the PartialCredentialsError."""
     mock_client.side_effect = PartialCredentialsError(
         provider='aws', cred_var='AWS_SECRET_ACCESS_KEY')
@@ -70,7 +75,8 @@ def test_no_contents_response_lambda(mock_s3, caplog):
 
     with caplog.at_level('INFO'):
         result = lambda_handler(mock_event, mock_context)
-    assert 'No objects found in the bucket.'
+
+    assert 'No objects found in the bucket.' in caplog.text
     assert result.get('status') == 'No objects to clean'
 
 
