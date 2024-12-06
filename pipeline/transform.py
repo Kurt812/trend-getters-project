@@ -9,7 +9,7 @@ import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import cursor as curs, connection as conn
 from dotenv import dotenv_values
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +85,8 @@ def extract_keywords_from_csv(csv_file) -> pd.Series:
         if os.path.isfile(csv_file):
             bluesky_data = pd.read_csv(csv_file)
             return bluesky_data['Keyword'].unique()
+
+        raise FileNotFoundError(f"File {csv_file} does not exist")
     except FileNotFoundError as e:
         logging.error('File not found at path %s: %s', csv_file, e)
         raise
