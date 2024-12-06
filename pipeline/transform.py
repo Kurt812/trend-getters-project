@@ -3,6 +3,7 @@
 # pylint: disable=E0401
 
 import logging
+import os
 import pandas as pd
 import psycopg2
 import psycopg2.extras
@@ -47,7 +48,6 @@ def ensure_keywords_in_db(keywords: list, cursor: curs, connection: conn) -> dic
     cursor.execute("SET search_path TO trendgineers;")
     cursor.execute("SELECT keyword, keywords_id FROM keywords")
     rows = cursor.fetchall()
-
     # Convert rows into a dictionary
     keyword_map = {row['keyword']: row['keywords_id'] for row in rows}
 
@@ -81,9 +81,17 @@ def keyword_matching(cleaned_bluesky_data: pd.DataFrame, keyword_map: dict) -> p
 
 def extract_keywords_from_csv(csv_file) -> pd.Series:
     """Extracts keywords from csv file"""
-    bluesky_data = pd.read_csv(csv_file)
-
-    return bluesky_data['Keyword'].unique()
+    try:
+        if os.path.isfile(csv_file):
+            bluesky_data = pd.read_csv(csv_file)
+            return bluesky_data['Keyword'].unique()
+    except FileNotFoundError as e:
+        logging.error('File not found at path %s: %s', csv_file, e)
+        raise
+    except Exception as e:
+        logging.error(
+            "An error occurred while reading the file %s: %s", csv_file, e)
+        raise
 
 
 def main(dataframe: pd.DataFrame) -> pd.DataFrame:
