@@ -1,10 +1,9 @@
 """Test file for clean.py"""
 
-
-from datetime import datetime, timezone, timedelta
-import os
-from unittest.mock import MagicMock, patch
 import pytest
+import os
+from datetime import datetime, timezone, timedelta
+from unittest.mock import MagicMock, patch
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from clean import (s3_connection, lambda_handler)
 
@@ -50,6 +49,7 @@ def test_s3_connection_raises_nocredentialserror(mock_client, caplog):
         's3', 'fake_access_key', 'fake_secret_key')
 
 
+
 @patch('clean.client')
 def test_s3_connection_raises_partialcredentialserror(mock_client, aws_env_vars, caplog):
     """Test that s3 connection function can and will raise the PartialCredentialsError."""
@@ -75,6 +75,7 @@ def test_no_contents_response_lambda(mock_s3, caplog):
 
     with caplog.at_level('INFO'):
         result = lambda_handler(mock_event, mock_context)
+
     assert 'No objects found in the bucket.' in caplog.text
     assert result.get('status') == 'No objects to clean'
 
