@@ -6,7 +6,7 @@ import os
 import logging
 import pandas as pd
 import psycopg2
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 from psycopg2.extras import RealDictCursor
 from load import (setup_connection, insert_keywords, insert_keyword_recordings,
                   insert_related_term_assignment, insert_related_terms, get_keyword_id, main)
