@@ -34,6 +34,16 @@ def env(configs):
         yield
 
 
+@pytest.fixture()
+def mock_df():
+    return pd.DataFrame({
+        'Hour': ['08:00', '09:00', '10:00'],
+        'Count': [15, 22, 18],
+        'Average Sentiment': [0.75, 0.60, 0.80],
+        'keyword_id': [1, 2, 3]
+    })
+
+
 @patch('load.psycopg2.connect')
 def test_setup_connection_success(mock_connect, env, caplog):
     """Test successful connection and schema setting."""
@@ -117,19 +127,12 @@ def test_keyword_already_exists_no_insert(mock_setup):
 
 
 @patch('load.setup_connection')
-def test_insert_keyword_recordings_success(mock_setup):
+def test_insert_keyword_recordings_success(mock_setup, mock_df):
     """Test successful insertion of data into keyword_recordings_table."""
 
     mock_conn = MagicMock()
     mock_curs = MagicMock()
     mock_setup.return_value = (mock_conn, mock_curs)
-
-    mock_df = pd.DataFrame({
-        'Hour': ['08:00', '09:00', '10:00'],
-        'Count': [15, 22, 18],
-        'Average Sentiment': [0.75, 0.60, 0.80],
-        'keyword_id': [1, 2, 3]
-    })
 
     insert_keyword_recordings(mock_conn, mock_curs, mock_df)
     assert mock_curs.execute.call_count == 3
@@ -212,21 +215,15 @@ def test_insert_related_term_assignment(mock_setup, mock_get_id):
     assert mock_conn.commit.call_count == 1
 
 
-@patch('load.get_keyword_id', return_value=1)
 @patch('load.insert_related_term_assignment')
 @patch('load.insert_related_terms')
 @patch('load.insert_keyword_recordings')
 @patch('load.insert_keywords')
 @patch('load.setup_connection')
-def test_main_success(mock_setup, mock_insert_keywords, mock_insert_recordings, mock_insert_related, mock_insert_assignment, mock_id, env, caplog):
+def test_main_success(mock_setup, mock_insert_keywords, mock_insert_recordings, mock_insert_related, mock_insert_assignment, mock_df, env, caplog):
     """Test the main load function of load will import data into RDS successfully."""
     mock_topics = ['python']
-    mock_df = pd.DataFrame({
-        'Hour': ['08:00', '09:00', '10:00'],
-        'Count': [15, 22, 18],
-        'Average Sentiment': [0.75, 0.60, 0.80],
-        'keyword_id': [1, 2, 3]
-    })
+
     mock_conn = MagicMock()
     mock_curs = MagicMock()
     mock_setup.return_value = (mock_conn, mock_curs)
