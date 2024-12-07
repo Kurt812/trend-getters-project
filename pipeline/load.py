@@ -3,7 +3,6 @@
 import datetime
 from os import environ as ENV
 import logging
-from altair import Cursor
 import pandas as pd
 import psycopg2
 import psycopg2.extras

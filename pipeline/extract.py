@@ -121,7 +121,3 @@ def main(topic: list[str]) -> pd.DataFrame:
                                 'Related Terms'] = ",".join([suggestion['title']
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
-
-
-if __name__ == "__main__":
-    print(main(['cat']))
