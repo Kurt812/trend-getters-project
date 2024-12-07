@@ -6,6 +6,7 @@ import streamlit as st
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import threading
 
 load_dotenv()
 
@@ -124,17 +125,39 @@ def insert_user(first_name: str, last_name: str, phone_number: str) -> None:
     execute_query(query, (first_name, last_name, phone_number))
 
 
+def submit_topic_in_background(data: dict) -> None:
+    """Run the submit_topic function in a background thread."""
+    thread = threading.Thread(target=submit_topic, args=(data,))
+    thread.start()
+
+
+def insert_keyword(keyword: str) -> None:
+    """Insert a new user into the database"""
+    query = """INSERT INTO keywords (keyword)
+               VALUES (%s);"""
+    execute_query(query, (keyword,))
+
+
 def submit_topic(data: dict) -> None:
-    """Submit topic details to the API"""
+    """Submit topic details to the API in a thread-safe manner."""
     try:
-        response = requests.post(API_ENDPOINT, json=data, timeout=10)
+        print("trying")
+        response = requests.post(API_ENDPOINT, json=data, timeout=1000)
+        # Store the result in session_state for the UI to update
         if response.status_code == 200:
+            # print(st.session_state["submit_status"])
+            st.session_state["submit_status"] = "success"
+            # insert_keyword(data["topic_name"])
+            # print(st.session_state["submit_status"])
             st.success("✅ Topic submitted successfully!")
+            st.rerun()
         else:
-            st.error(f"""Error: {response.json().get(
-                'message', 'Unknown error')}""")
+            st.session_state["submit_status"] = f"Error: {
+                response.json().get('message', 'Unknown error')}"
     except requests.exceptions.RequestException as e:
-        st.error(f"Failed to connect to the API. Error: {e}")
+        st.session_state["submit_status"] = f"Failed to connect to the API. Error: {
+            e}"
+    print("tried")
 
 
 def user_verification() -> None:
@@ -210,12 +233,25 @@ def topic_and_subscription_ui() -> None:
 
         if submit_topic_button:
             if new_topic.strip():
-                topic_data = {
-                    "topic_name": new_topic.strip()
-                }
-                submit_topic(topic_data)
+                topic_data = {"topic_name": new_topic.strip()}
+                if fetch_keyword_id(new_topic) is None:
+                    submit_topic_in_background(topic_data)
+
+                else:
+                    st.success("✅ Topic found!")
+                st.session_state["submit_status"] = "flop"
             else:
                 st.warning("Please enter a valid topic.")
+            print("MAMA")
+            # print("THIS ONE HERE", st.session_state["submit_status"])
+            print("BABA")
+            if "submit_status" in st.session_state:
+                if st.session_state["submit_status"] == "success":
+                    st.success("✅ Topic submitted successfully!")
+                else:
+                    st.info("Submitting topic in the background...")
+                # Clear the status after displaying it
+                del st.session_state["submit_status"]
 
         # Keyword Subscription
         st.subheader("Subscribe to Keywords")

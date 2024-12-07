@@ -20,6 +20,7 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 
+
 def s3_connection() -> client:
     """Connects to an S3 and configs S3 Connection"""
     config = Config(
@@ -29,7 +30,7 @@ def s3_connection() -> client:
             'max_attempts': 3,
             'mode': 'standard'
         },
-        max_pool_connections=50
+        max_pool_connections=40
     )
     try:
         aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -48,6 +49,7 @@ def s3_connection() -> client:
         logging.error('An error occurred attempting to connect to S3: %s', e)
         return None
     return s3
+
 
 def extract_bluesky_files(s3: client) -> list[str]:
     """Accesses files from S3 and returns a list of texts with the topic present"""
@@ -78,12 +80,15 @@ def extract_bluesky_files(s3: client) -> list[str]:
 
     return file_names
 
+
 def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
     """Checks files from S3 for keywords and returns relevant data if keyword is found"""
     try:
-        file_obj = s3.get_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=file_name)
+        file_obj = s3.get_object(Bucket=os.environ.get(
+            "S3_BUCKET_NAME"), Key=file_name)
         file_content = file_obj['Body'].read().decode('utf-8')
-        hour_folder = file_name.split('/')[-2]  # Extracts the hour folder (e.g., "16/")
+        # Extracts the hour folder (e.g., "16/")
+        hour_folder = file_name.split('/')[-2]
 
         keyword_counts = defaultdict(int)
         sentiment_scores = defaultdict(int)
@@ -91,22 +96,25 @@ def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
         for keyword in topic:
             count = file_content.count(keyword)
             if count > 0:
-                logging.info("Keyword %s found in %s %d times", keyword, file_name, count)
+                logging.info("Keyword %s found in %s %d times",
+                             keyword, file_name, count)
                 sentiment_scores[keyword] = add_sentiment_scores(file_content)
                 keyword_counts[keyword] += count
 
         return {
             "Hour": hour_folder,
             "Counts": dict(keyword_counts),
-            "Sentiment Score" : sentiment_scores
+            "Sentiment Score": sentiment_scores
         }
 
     except ClientError as e:
         if e.response['Error']['Code'] == 'NoSuchKey':
             logging.error("File not found in S3: %s", e)
-            raise FileNotFoundError(f"File '{file_name}' not found in S3.") from e
+            raise FileNotFoundError(
+                f"File '{file_name}' not found in S3.") from e
 
     return None
+
 
 def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]) -> pd.DataFrame:
     """Uses multi-threading to extract matching text and keyword counts from S3 files"""
@@ -126,14 +134,16 @@ def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]
                     hourly_data[hour][keyword] += count
 
                 for keyword, sentiment_score in extracted_data["Sentiment Score"].items():
-                    hourly_sentiments[hour][keyword].append(sentiment_score['compound'])
+                    hourly_sentiments[hour][keyword].append(
+                        sentiment_score['compound'])
 
     hourly_rows = []
     for hour, counts in hourly_data.items():
         for keyword, count in counts.items():
-            average_sentiment = sum(hourly_sentiments[hour][keyword]) / len(hourly_sentiments[hour][keyword])
+            average_sentiment = sum(
+                hourly_sentiments[hour][keyword]) / len(hourly_sentiments[hour][keyword])
             hourly_rows.append({"Hour": hour, "Keyword": keyword,
-                                "Count": count, "Average Sentiment" : average_sentiment})
+                                "Count": count, "Average Sentiment": average_sentiment})
     mentions_per_hour = pd.DataFrame(hourly_rows)
 
     return mentions_per_hour
@@ -174,7 +184,7 @@ def main(topic: list[str]) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    topics = ['sun','rain']
+    topics = ['sun', 'rain']
     extracted_dataframe, hourly_counts_dataframe = main(topics)
     logging.info("\nExtracted Dataframe:\n%s", extracted_dataframe)
     logging.info("\nHourly Counts Dataframe:\n%s", hourly_counts_dataframe)
