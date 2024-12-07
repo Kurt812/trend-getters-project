@@ -4,6 +4,12 @@ variable "DB_NAME" {
   default     = "trends"
 }
 
+variable "DB_NAME_2" {
+  description = "The name of the database to create"
+  type        = string
+  default     = "trends_2"
+}
+
 variable "VPC_ID" {
   description = "The VPC id we are using"
   type        = string
@@ -34,6 +40,12 @@ variable "DB_HOST" {
   sensitive = true
 }
 
+variable "DB_HOST_2" {
+  description = "The database endpoint"
+  type        = string
+  sensitive = true
+}
+
 variable "SCHEMA_NAME" {
   description = "The database schema"
   type        = string
@@ -58,13 +70,13 @@ variable "db_instance_class" {
   default     = "db.t3.micro"
 }
 
-variable "AWS_ACCESS_KEY_ID" {
+variable "ACCESS_KEY_ID" {
   description = "The AWS access key id"
   type        = string
   sensitive = true
 }
 
-variable "AWS_SECRET_ACCESS_KEY" {
+variable "SECRET_ACCESS_KEY" {
   description = "The AWS secret access key"
   type        = string
   sensitive = true

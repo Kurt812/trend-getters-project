@@ -82,8 +82,8 @@ resource "aws_ecs_task_definition" "c14_trendgineers_raw_upload" {
         }
       ]
       environment = [
-        { name = "AWS_ACCESS_KEY_ID", value = var.AWS_ACCESS_KEY_ID },
-        { name = "AWS_SECRET_ACCESS_KEY", value = var.AWS_SECRET_ACCESS_KEY }
+        { name = "AWS_ACCESS_KEY_ID", value = var.ACCESS_KEY_ID },
+        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY }
       ]
 
       logConfiguration = {
@@ -120,18 +120,18 @@ resource "aws_security_group" "raw_upload_ecs_service_sg" {
     }
 }
 
-resource "aws_ecs_service" "service" {
-  name            = "c14-trendgineers-raw-upload-service"
-  cluster         = data.aws_ecs_cluster.cluster.id
-  task_definition = aws_ecs_task_definition.c14_trendgineers_raw_upload.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+# resource "aws_ecs_service" "service" {
+#   name            = "c14-trendgineers-raw-upload-service"
+#   cluster         = data.aws_ecs_cluster.cluster.id
+#   task_definition = aws_ecs_task_definition.c14_trendgineers_raw_upload.arn
+#   desired_count   = 1
+#   launch_type     = "FARGATE"
 
-  network_configuration {
-    subnets         = ["subnet-0497831b67192adc2",
-                "subnet-0acda1bd2efbf3922",
-                "subnet-0465f224c7432a02e"] 
-    security_groups = [aws_security_group.raw_upload_ecs_service_sg.id]
-    assign_public_ip = true
-  }
-}
+#   network_configuration {
+#     subnets         = ["subnet-0497831b67192adc2",
+#                 "subnet-0acda1bd2efbf3922",
+#                 "subnet-0465f224c7432a02e"] 
+#     security_groups = [aws_security_group.raw_upload_ecs_service_sg.id]
+#     assign_public_ip = true
+#   }
+# }

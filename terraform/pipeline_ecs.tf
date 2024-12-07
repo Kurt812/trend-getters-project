@@ -97,8 +97,8 @@ resource "aws_ecs_task_definition" "c14_trendgineers_pipeline" {
         { name = "SCHEMA_NAME", value = var.SCHEMA_NAME },
         { name = "DB_NAME", value = var.DB_NAME },
         { name = "DB_PASSWORD", value = var.DB_PASSWORD },
-        { name = "AWS_ACCESS_KEY_ID", value = var.AWS_ACCESS_KEY_ID },
-        { name = "AWS_SECRET_ACCESS_KEY", value = var.AWS_SECRET_ACCESS_KEY }
+        { name = "AWS_ACCESS_KEY_ID", value = var.ACCESS_KEY_ID },
+        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY }
       ]
 
       logConfiguration = {
@@ -149,18 +149,18 @@ resource "aws_security_group" "pipeline_ecs_service_sg" {
   }
 }
 
-resource "aws_ecs_service" "pipeline_service" {
-  name            = "c14-trendgineers-pipeline-service"
-  cluster         = data.aws_ecs_cluster.cluster.id
-  task_definition = aws_ecs_task_definition.c14_trendgineers_pipeline.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+# resource "aws_ecs_service" "pipeline_service" {
+#   name            = "c14-trendgineers-pipeline-service"
+#   cluster         = data.aws_ecs_cluster.cluster.id
+#   task_definition = aws_ecs_task_definition.c14_trendgineers_pipeline.arn
+#   desired_count   = 1
+#   launch_type     = "FARGATE"
 
-  network_configuration {
-    subnets         = ["subnet-0497831b67192adc2",
-                "subnet-0acda1bd2efbf3922",
-                "subnet-0465f224c7432a02e"] 
-    security_groups = [aws_security_group.pipeline_ecs_service_sg.id]
-    assign_public_ip = true
-  }
-}
+#   network_configuration {
+#     subnets         = ["subnet-0497831b67192adc2",
+#                 "subnet-0acda1bd2efbf3922",
+#                 "subnet-0465f224c7432a02e"] 
+#     security_groups = [aws_security_group.pipeline_ecs_service_sg.id]
+#     assign_public_ip = true
+#   }
+# }
