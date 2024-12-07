@@ -1,8 +1,9 @@
-"""Potential final extract script!"""
+"""Extracts data from S3 Bucket"""
 
 import os
 import logging
 import json
+from httpx import Client
 import pandas as pd
 from boto3 import client
 from dotenv import load_dotenv
@@ -60,7 +61,7 @@ def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
     return total_sentiment/mentions, mentions
 
 
-def download_truck_data_files(s3, bucket, topic: list[str]) -> pd.DataFrame:
+def download_truck_data_files(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
     """Downloads relevant files from S3 to a data/ folder."""
     bucket = os.environ.get("S3_BUCKET_NAME")
 
@@ -103,7 +104,7 @@ def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[dict]:
     return pytrend.suggestions(keyword=keyword)
 
 
-def main(topic: list[str]):
+def main(topic: list[str]) -> pd.DataFrame:
     """Extracts data from S3 Bucket and creates two summary DataFrames"""
     s3 = s3_connection()
 
@@ -117,7 +118,3 @@ def main(topic: list[str]):
                                 'Related Terms'] = ",".join([suggestion['title']
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
-
-
-if __name__ == "__main__":
-    ...
