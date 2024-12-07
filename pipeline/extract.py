@@ -1,11 +1,9 @@
 """Potential final extract script!"""
 
-from ast import Return
 import os
 import logging
 import json
 import pandas as pd
-import pytrends
 from boto3 import client
 from dotenv import load_dotenv
 from pytrends.request import TrendReq
@@ -37,7 +35,6 @@ def s3_connection() -> client:
 
         if not aws_access_key or not aws_secret_key:
             logging.error("Missing required AWS credentials in .env file.")
-            raise
         s3 = client(
             "s3",
             aws_access_key_id=aws_access_key,
@@ -67,8 +64,6 @@ def download_truck_data_files(s3, bucket, topic: list[str]) -> pd.DataFrame:
     """Downloads relevant files from S3 to a data/ folder."""
     bucket = os.environ.get("S3_BUCKET_NAME")
 
-    pytrend = initialize_trend_request()
-
     response = s3.list_objects_v2(
         Bucket=bucket, Prefix="bluesky/2024-12-07/", Delimiter='/')
 
@@ -94,9 +89,8 @@ def download_truck_data_files(s3, bucket, topic: list[str]) -> pd.DataFrame:
                         'Total Mentions': sentiment_and_mentions[1],
                     })
         return pd.DataFrame(sentiment_and_mention_data)
-    else:
-        logging.info("No files found in the parent folder.")
-        raise ValueError("No files found in the parent folder.")
+    logging.info("No files found in the parent folder.")
+    raise ValueError("No files found in the parent folder.")
 
 
 def initialize_trend_request() -> TrendReq:
@@ -119,10 +113,9 @@ def main(topic: list[str]):
 
     pytrend = initialize_trend_request()
     for keyword in topic:
-        extracted_dataframe.loc[extracted_dataframe['Keyword'] == keyword, 'Related Terms'] = ",".join(
-            [suggestion['title']
-                for suggestion in fetch_suggestions(pytrend, keyword)]
-        )
+        extracted_dataframe.loc[extracted_dataframe['Keyword'] == keyword,
+                                'Related Terms'] = ",".join([suggestion['title']
+                                                             for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
 
 
