@@ -91,13 +91,13 @@ def download_csv_from_s3(bucket_name: str, s3_file_path: str, file_name: str) ->
     except FileNotFoundError as fe:
         logging.warning("File %s not found locally: %s", tmp_file_name, fe)
         return pd.DataFrame()
-    except ClientError as ce:
-        logging.warning(
-            "Failed to download %s from S3 (AWS Client Error): %s", tmp_file_name, ce)
-        return pd.DataFrame()
     except pd.errors.EmptyDataError as ede:
         logging.warning("Downloaded file %s is empty: %s", tmp_file_name, ede)
         return pd.DataFrame()
+    except ClientError as ce:
+        logging.error(
+            "Failed to download %s from S3 (AWS Client Error): %s", tmp_file_name, ce)
+        raise
     except Exception as e:
         logging.error(
             "Unexpected error while downloading %s from S3: %s", tmp_file_name, e)
