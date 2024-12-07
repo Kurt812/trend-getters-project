@@ -1,5 +1,6 @@
 """Script to load data into RDS"""
 
+import datetime
 from os import environ as ENV
 import logging
 import pandas as pd
@@ -56,10 +57,11 @@ def insert_keyword_recordings(conn: connect,
         total_mentions = row['Total Mentions']
         average_sentiment = row['Average Sentiment']
         keyword_id = row['keyword_id']
+        recorded_at = datetime.datetime.now()
         cursor.execute("""INSERT INTO keyword_recordings
-                       (keywords_id, total_mentions, avg_sentiment, hour_of_day)
-                       VALUES (%s, %s, %s, %s)""",
-                       (keyword_id, total_mentions, average_sentiment, hour))
+                       (keywords_id, total_mentions, avg_sentiment, hour_of_day, recorded_at)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                       (keyword_id, total_mentions, average_sentiment, hour, recorded_at))
         conn.commit()
 
 

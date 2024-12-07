@@ -61,9 +61,8 @@ def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
     return total_sentiment/mentions, mentions
 
 
-def download_truck_data_files(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
-    """Downloads relevant files from S3 to a data/ folder."""
-    bucket = os.environ.get("S3_BUCKET_NAME")
+def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
+    """Extracts relevant data from an S3 Bucket"""
 
     response = s3.list_objects_v2(
         Bucket=bucket, Prefix="bluesky/2024-12-07/", Delimiter='/')
@@ -105,12 +104,12 @@ def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[dict]:
 
 
 def main(topic: list[str]) -> pd.DataFrame:
-    """Extracts data from S3 Bucket and creates two summary DataFrames"""
+    """Main function to run extract script"""
     s3 = s3_connection()
 
     bucket = os.environ.get("S3_BUCKET_NAME")
 
-    extracted_dataframe = download_truck_data_files(s3, bucket, topic)
+    extracted_dataframe = extract_s3_data(s3, bucket, topic)
 
     pytrend = initialize_trend_request()
     for keyword in topic:
