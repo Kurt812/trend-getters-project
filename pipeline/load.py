@@ -53,7 +53,7 @@ def insert_keyword_recordings(conn: connect,
 
     for row in dataframe.to_dict(orient='records'):
         hour = row['Hour']
-        total_mentions = row['Count']
+        total_mentions = row['Total Mentions']
         average_sentiment = row['Average Sentiment']
         keyword_id = row['keyword_id']
         cursor.execute("""INSERT INTO keyword_recordings
