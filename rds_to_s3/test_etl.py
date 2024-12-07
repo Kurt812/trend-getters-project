@@ -35,6 +35,16 @@ def env(configs):
         yield
 
 
+@patch('sqlalchemy.create_engine')
+def test_setup_engine(mock_engine, env):
+    """Test successful setup of sqlalchemy engine."""
+    engine = setup_engine()
+
+    expected_conn_str = 'postgresql+psycopg2://user:password@localhost:1234/name'
+    mock_engine.assert_called_once_with(expected_conn_str)
+    assert engine == mock_engine.return_value
+
+
 @patch('etl.psycopg2.connect')
 def test_setup_connection_success(mock_connect, env, caplog):
     """Test successful connection and schema setting."""
