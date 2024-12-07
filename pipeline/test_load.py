@@ -38,7 +38,7 @@ def env(configs):
 def mock_df():
     return pd.DataFrame({
         'Hour': ['08:00', '09:00', '10:00'],
-        'Count': [15, 22, 18],
+        'Total Mentions': [15, 22, 18],
         'Average Sentiment': [0.75, 0.60, 0.80],
         'keyword_id': [1, 2, 3]
     })
