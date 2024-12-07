@@ -59,7 +59,7 @@ def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
             total_sentiment += sentiment['Sentiment Score']['compound']
             mentions += 1
     if mentions == 0:
-        return 0, 0
+        return (total_sentiment, mentions)
     return total_sentiment/mentions, mentions
 
 
