@@ -9,7 +9,8 @@ import psycopg2.extras
 from psycopg2 import OperationalError, InterfaceError, DatabaseError
 from dotenv import load_dotenv
 import boto3
-from botocore.exceptions import NoCredentialsError, ClientError
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
 
@@ -37,9 +38,28 @@ logging.basicConfig(
 
 def setup_engine():
     """Set up SQLAlchemy engine."""
-    return create_engine(
-        f"postgresql+psycopg2://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-    )
+    try:
+        db_username = ENV['DB_USERNAME']
+        db_password = ENV['DB_PASSWORD']
+        db_host = ENV['DB_HOST']
+        db_port = ENV['DB_PORT']
+        db_name = ENV['DB_NAME']
+
+        if not all([db_username, db_password, db_host, db_port, db_name]):
+            raise EnvironmentError(
+                "One or more required environment variables are missing.")
+
+        engine = create_engine(
+            f"postgresql+psycopg2://{db_username}:{db_password}@{
+                db_host}:{db_port}/{db_name}"
+        )
+        return engine
+    except SQLAlchemyError as e:
+        logging.error("Failed to connect to database: %s", e)
+        raise
+    except Exception as e:
+        logging.error("An unexpected error occurred: %s", e)
+        raise
 
 
 def setup_connection() -> tuple:
@@ -53,6 +73,7 @@ def setup_connection() -> tuple:
             database=ENV["DB_NAME"]
         )
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        logging.info('Connection successfully established to RDS database.')
         return conn, cursor
     except OperationalError as oe:
         logging.error(
@@ -73,11 +94,23 @@ def setup_connection() -> tuple:
 
 def s3_connection() -> boto3.client:
     """Function connects to S3 and provides client to interact with it."""
-    return boto3.client(
-        "s3",
-        aws_access_key_id=ENV["ACCESS_KEY_ID"],
-        aws_secret_access_key=ENV["SECRET_ACCESS_KEY"]
-    )
+    try:
+        aws_access_key_id = os.environ.get("ACCESS_KEY_ID")
+        aws_secret_access_key = os.environ.get("SECRET_ACCESS_KEY")
+        if not aws_access_key_id or not aws_secret_access_key:
+            logging.error("Missing required AWS credentials in .env file.")
+            raise ValueError("Missing AWS credentials.")
+
+        s3 = boto3.client("s3", aws_access_key_id,
+                          aws_secret_access_key)
+        return s3
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        logging.error("A BotoCore error occurred: %s", e)
+        raise
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while connecting to S3: %s", e)
+        raise
 
 
 def download_csv_from_s3(bucket_name: str, s3_file_path: str, file_name: str) -> pd.DataFrame:
