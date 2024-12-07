@@ -30,8 +30,9 @@ CREATE TABLE IF NOT EXISTS keyword_recordings (
     keyword_recordings_id BIGINT GENERATED ALWAYS AS IDENTITY,
     keywords_id BIGINT,
     total_mentions SMALLINT,
-    avg_sentiment SMALLINT,
+    avg_sentiment FLOAT,
     hour_of_day SMALLINT,
+    recorded_at TIMESTAMP,
     PRIMARY KEY (keyword_recordings_id),
     FOREIGN KEY (keywords_id) REFERENCES keywords(keywords_id)
 );
