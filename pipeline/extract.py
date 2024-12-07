@@ -3,7 +3,9 @@
 import os
 import logging
 import json
+import datetime
 from httpx import Client
+from numpy import datetime_data
 import pandas as pd
 from boto3 import client
 from dotenv import load_dotenv
@@ -63,9 +65,11 @@ def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
 
 def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
     """Extracts relevant data from an S3 Bucket"""
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    prefix = f"bluesky/{today}/"
 
     response = s3.list_objects_v2(
-        Bucket=bucket, Prefix="bluesky/2024-12-07/", Delimiter='/')
+        Bucket=bucket, Prefix=prefix, Delimiter='/')
 
     if 'Contents' in response:
         sentiment_and_mention_data = []
@@ -73,7 +77,7 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
         for obj in response['Contents']:
             key = obj['Key']
 
-            if key.endswith('.json') and key.count('/') == "bluesky/2024-12-07/".count('/'):
+            if key.endswith('.json') and key.count('/') == prefix.count('/'):
                 file_obj = s3.get_object(Bucket=bucket, Key=key)
                 file_content = json.loads(
                     file_obj['Body'].read().decode('utf-8'))
