@@ -59,7 +59,7 @@ def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
             total_sentiment += sentiment['Sentiment Score']['compound']
             mentions += 1
     if mentions == 0:
-        return (total_sentiment, mentions)
+        return 0, 0
     return total_sentiment/mentions, mentions
 
 
@@ -121,3 +121,7 @@ def main(topic: list[str]) -> pd.DataFrame:
                                 'Related Terms'] = ",".join([suggestion['title']
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
+
+
+if __name__ == "__main__":
+    print(main(['cat']))

@@ -3,6 +3,7 @@
 import datetime
 from os import environ as ENV
 import logging
+from altair import Cursor
 import pandas as pd
 import psycopg2
 import psycopg2.extras
@@ -48,9 +49,8 @@ def insert_keywords(conn: connect, cursor: curs,
             conn.commit()
 
 
-def insert_keyword_recordings(conn: connect,
-                              cursor: curs, dataframe: pd.DataFrame) -> None:
-    """Inserts data into the keyword_recordings table"""
+def insert_keyword_recordings(conn: connect, cursor: curs, dataframe: pd.DataFrame) -> None:
+    """Inserts data into the keyword_recordings table if not already present for the hour and timestamp."""
 
     for row in dataframe.to_dict(orient='records'):
         hour = row['Hour']
@@ -58,11 +58,20 @@ def insert_keyword_recordings(conn: connect,
         average_sentiment = row['Average Sentiment']
         keyword_id = row['keyword_id']
         recorded_at = datetime.datetime.now()
-        cursor.execute("""INSERT INTO keyword_recordings
-                       (keywords_id, total_mentions, avg_sentiment, hour_of_day, recorded_at)
-                       VALUES (%s, %s, %s, %s, %s)""",
-                       (keyword_id, total_mentions, average_sentiment, hour, recorded_at))
-        conn.commit()
+
+        cursor.execute("""
+            SELECT 1 FROM keyword_recordings
+            WHERE keywords_id = %s AND hour_of_day = %s AND EXTRACT(HOUR FROM recorded_at) = %s
+        """, (keyword_id, hour, recorded_at.hour))
+        duplicate = cursor.fetchone()
+
+        if not duplicate:
+            cursor.execute("""
+                INSERT INTO keyword_recordings
+                (keywords_id, total_mentions, avg_sentiment, hour_of_day, recorded_at)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (keyword_id, total_mentions, average_sentiment, hour, recorded_at))
+            conn.commit()
 
 
 def insert_related_terms(conn: connect, cursor: curs, extracted_dataframe: pd.DataFrame) -> dict:
