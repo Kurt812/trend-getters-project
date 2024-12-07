@@ -1,7 +1,6 @@
 """Test script for load python file."""
 # pylint: skip-file
 
-from freezegun import freeze_time
 import datetime
 import pytest
 import os
