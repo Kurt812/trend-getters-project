@@ -7,7 +7,7 @@ import logging
 import pandas as pd
 from psycopg2 import OperationalError, InterfaceError, DatabaseError
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 from psycopg2.extras import RealDictCursor
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -51,7 +51,6 @@ def test_setup_engine(mock_engine, mock_env):
     assert engine == mock_engine.return_value
 
 
-# need to add error hndling for setting up engine
 @patch('etl_lambda.create_engine')
 def test_SQLAlchemyError_setup_engine(mock_engine, caplog):
     """Test SQLAlchemyError raised when something goes wrong with the SQLAlchemy library."""
@@ -94,7 +93,7 @@ def test_setup_connection_success(mock_connect, mock_env, caplog):
 
 @patch('etl_lambda.psycopg2.connect')
 def test_setup_connection_operational_error(mock_connect, mock_env, caplog):
-    """Test Operational Error is raised when there is a problem connecting to PostgreSQL 
+    """Test Operational Error is raised when there is a problem connecting to PostgreSQL
      database or executing database operation."""
 
     mock_connect.side_effect = OperationalError('Simulated OperationalError')
@@ -176,6 +175,252 @@ def test_s3_connection_raises_partialcredentialserror(mock_client, mock_env, cap
         's3', 'fake_access_key', 'fake_secret_key')
 
 
+@patch('etl_lambda.pd.read_csv')
 @patch('etl_lambda.s3_connection')
-def test_successful_download_csv_s3(mock_s3_conn):
+def test_successful_download_csv_s3(mock_s3_conn, mock_read_csv, caplog):
     """Test the successful download of files from the S3 bucket."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+    mock_read_csv.return_value = pd.DataFrame({
+        'keywords': ['python'],
+        'total mentions': [23],
+        'avg sentiment': [0.12]
+    })
+    file_name = 'test_file.csv'
+    with caplog.at_level(logging.INFO):
+        df = download_csv_from_s3('test_bucket', 'test/path/', file_name)
+
+    mock_read_csv.assert_called_once_with(f'/tmp/{file_name}')
+    assert f'Downloaded /tmp/{file_name} from S3.' in caplog.text
+    mock_s3.download_file.assert_called_once()
+    assert isinstance(df, pd.DataFrame)
+
+
+@patch('etl_lambda.pd.read_csv')
+@patch('etl_lambda.s3_connection')
+def test_download_csv_filenotfound(mock_s3_conn, mock_read_csv, caplog):
+    """Test if file was not downloaded correctly or unable to be found locally, FileNotFoundError will be raised."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+    mock_s3.download_file.return_value = None
+    mock_read_csv.side_effect = FileNotFoundError()
+    file_name = 'test_file.csv'
+    with caplog.at_level(logging.WARNING):
+        download_csv_from_s3('test_bucket', 'test/path/', file_name)
+
+    mock_s3.download_file.assert_called_once_with(
+        'test_bucket', 'test/path/', '/tmp/test_file.csv')
+
+    assert 'File /tmp/test_file.csv not found locally:' in caplog.text
+
+
+@patch('etl_lambda.pd.read_csv')
+@patch('etl_lambda.s3_connection')
+def test_download_csv_clienterror(mock_s3_conn, mock_read_csv, caplog):
+    """Test that if the file cannot be found in bucket, the appropriate error will be raised."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+
+    error_response = {
+        'Error': {
+            'Code': 'NoSuchKey',
+            'Message': 'The specified key does not exist.'
+        }
+    }
+    mock_s3.download_file.side_effect = ClientError(
+        error_response=error_response,
+        operation_name="DownloadFile"
+    )
+    file_name = 'test_file.csv'
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ClientError):
+            download_csv_from_s3('test_bucket', 'test/path/', file_name)
+
+    mock_s3.download_file.assert_called_once_with(
+        'test_bucket', 'test/path/', '/tmp/test_file.csv'
+    )
+    mock_read_csv.assert_not_called()
+    assert 'Failed to download /tmp/test_file.csv from S3 (AWS Client Error)' in caplog.text
+
+
+@patch('etl_lambda.pd.read_csv')
+@patch('etl_lambda.s3_connection')
+def test_download_csv_EmptyDataError(mock_s3_conn, mock_read_csv, caplog, mock_env):
+    """Test that if the file cannot be found in bucket, the appropriate error will be raised."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+
+    bucket_name = 'test_bucket'
+    s3_file_path = 'test/path/test_file.csv'
+    file_name = 'test_file.csv'
+
+    mock_read_csv.side_effect = pd.errors.EmptyDataError(
+        f'Downloaded file /tmp/{file_name} is empty')
+    with caplog.at_level(logging.WARNING):
+        result = download_csv_from_s3(bucket_name, s3_file_path, file_name)
+
+    mock_s3.download_file.assert_called_once_with(
+        bucket_name, s3_file_path, f'/tmp/{file_name}')
+    mock_read_csv.assert_called_once_with(f'/tmp/{file_name}')
+    assert 'Downloaded file /tmp/test_file.csv is empty' in caplog.text
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
+
+
+@patch('etl_lambda.pd.read_csv')
+@patch('etl_lambda.s3_connection')
+def test_download_csv_Exception(mock_s3_conn, mock_read_csv, caplog):
+    """Test that if any exception occurs, it will be raised."""
+
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+
+    mock_s3.download_file.side_effect = Exception()
+
+    bucket_name = "test_bucket"
+    s3_file_path = "test/path/test_file.csv"
+    file_name = "test_file.csv"
+
+    with caplog.at_level(logging.INFO):
+        with pytest.raises(Exception):
+            download_csv_from_s3(bucket_name, s3_file_path, file_name)
+    assert 'Unexpected error while downloading' in caplog.text
+    for record in caplog.records:
+        assert record.levelname == 'ERROR'
+    mock_read_csv.assert_not_called()
+
+
+@patch('etl_lambda.s3_connection')
+def test_successful_upload_to_s3(mock_s3_conn, caplog):
+    """Test successful upload of file to s3 bucket."""
+
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+    file_name = "test_file.csv"
+    object_name = "object_name"
+    bucket_name = "test_bucket"
+
+    with caplog.at_level(logging.INFO):
+        upload_to_s3(bucket_name, file_name, object_name)
+
+    assert f'Uploaded {
+        file_name} to s3://{bucket_name}/{object_name}' in caplog.text
+    mock_s3.upload_file.assert_called_once()
+
+
+@patch('etl_lambda.s3_connection')
+def test_upload_s3_filenotfound(mock_s3_conn, caplog):
+    """Test if file is unable to be found locally, FileNotFoundError will be raised."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+
+    mock_s3.upload_file.side_effect = FileNotFoundError()
+    file_name = 'test_file.csv'
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(FileNotFoundError):
+            upload_to_s3('test_bucket', file_name,  'object_name')
+
+    mock_s3.upload_file.assert_called_once_with(
+        f'/tmp/{file_name}', 'test_bucket', 'object_name')
+
+    assert f'Local file {file_name} not found for upload:' in caplog.text
+
+
+@patch('etl_lambda.pd.read_csv')
+@patch('etl_lambda.s3_connection')
+def test_download_csv_clienterror(mock_s3_conn, mock_read_csv, caplog):
+    """Test that if the file cannot be found in bucket, the appropriate error will be raised."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+
+    error_response = {
+        'Error': {
+            'Code': 'NoSuchKey',
+            'Message': 'The specified key does not exist.'
+        }
+    }
+    mock_s3.upload_file.side_effect = ClientError(
+        error_response=error_response,
+        operation_name="UploadFile"
+    )
+    file_name = "test_file.csv"
+    object_name = "object_name"
+    bucket_name = "test_bucket"
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ClientError):
+            upload_to_s3(bucket_name, file_name, object_name)
+
+    mock_s3.upload_file.assert_called_once_with(
+        f'/tmp/{file_name}', bucket_name, object_name)
+
+    assert f'Failed to upload {
+        file_name} to S3 (AWS Client Error):' in caplog.text
+
+
+@patch('etl_lambda.s3_connection')
+def test_upload_s3_exception(mock_s3_conn, caplog):
+    """Test if file is unable to be found locally, FileNotFoundError will be raised."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+
+    mock_s3.upload_file.side_effect = Exception()
+    file_name = 'test_file.csv'
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(Exception):
+            upload_to_s3('test_bucket', file_name,  'object_name')
+
+    mock_s3.upload_file.assert_called_once_with(
+        f'/tmp/{file_name}', 'test_bucket', 'object_name')
+
+    assert f'Unexpected error while uploading {
+        file_name} to S3:' in caplog.text
+
+
+@patch('os.path.exists', return_value=True)
+@patch('os.remove')
+def test_delete_local_file_success(mock_remove, mock_exists, caplog):
+    """Test to ensure the specified file is deleted if it exists."""
+    file_name = 'keep_file.csv'
+
+    with caplog.at_level(logging.INFO):
+        delete_local_file(file_name)
+
+    mock_exists.assert_called_once_with(f'/tmp/{file_name}')
+    mock_remove.assert_called_once_with(f'/tmp/{file_name}')
+
+    assert f'Deleted local file: /tmp/{file_name}' in caplog.text
+
+
+@patch('os.path.exists', return_value=False)
+@patch('os.remove')
+def test_delete_local_file_warning(mock_remove, mock_exists, caplog):
+    """Test to ensure the specified file is deleted if it exists."""
+    file_name = 'keep_file.csv'
+
+    with caplog.at_level(logging.WARNING):
+        delete_local_file(file_name)
+
+    mock_exists.assert_called_once_with(f'/tmp/{file_name}')
+    mock_remove.assert_not_called()
+
+    assert f'File /tmp/{file_name} does not exist.' in caplog.text
+
+
+@patch('os.path.exists', return_value=True)
+@patch('os.remove')
+def test_delete_local_file_permissionerror(mock_remove, mock_exists, caplog):
+    """Test to ensure the specified file is deleted if it exists."""
+    file_name = 'keep_file.csv'
+    mock_remove.side_effect = PermissionError()
+
+    with pytest.raises(PermissionError):
+        with caplog.at_level(logging.INFO):
+            delete_local_file(file_name)
+
+    mock_exists.assert_called_once_with(f'/tmp/{file_name}')
+    mock_remove.assert_called_once()
+
+    assert f'Permission denied while trying to delete /tmp/{
+        file_name}:' in caplog.text

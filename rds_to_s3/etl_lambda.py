@@ -148,9 +148,6 @@ def upload_to_s3(bucket_name: str, file_name: str, object_name: str) -> None:
     except FileNotFoundError as fe:
         logging.error("Local file %s not found for upload: %s", file_name, fe)
         raise
-    except NoCredentialsError as nce:
-        logging.error("AWS credentials not found: %s", nce)
-        raise
     except ClientError as ce:
         logging.error(
             "Failed to upload %s to S3 (AWS Client Error): %s", file_name, ce)
