@@ -7,6 +7,7 @@ import boto3
 from boto3 import client
 from dotenv import load_dotenv
 from psycopg2.extensions import connection
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 
 logging.basicConfig(
@@ -24,9 +25,23 @@ load_dotenv(".env")
 
 def s3_connection() -> connection:
     """Connects to an S3"""
-    s3 = client("s3", aws_access_key_id=os.environ.get("ACCESS_KEY_ID"),
-                aws_secret_access_key=os.environ.get("SECRET_ACCESS_KEY"))
-    return s3
+    try:
+        aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        if not aws_access_key_id or not aws_secret_access_key:
+            logging.error("Missing required AWS credentials in .env file.")
+            raise ValueError("Missing AWS credentials.")
+
+        s3 = client("s3", aws_access_key_id,
+                    aws_secret_access_key)
+        return s3
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        logging.error("A BotoCore error occurred: %s", e)
+        raise
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while connecting to S3: %s", e)
+        raise
 
 
 def lambda_handler(event, context):
@@ -50,11 +65,13 @@ def lambda_handler(event, context):
             age = current_time - last_modified
 
             if age > timedelta(days=DAY_LIMIT):
-                s3_client.delete_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=object_key)
+                s3_client.delete_object(Bucket=os.environ.get(
+                    "S3_BUCKET_NAME"), Key=object_key)
                 deleted_files.append(object_key)
                 logging.info("Deleted old object: %s", object_key)
             else:
-                logging.info("Object is within retention period: %s", object_key)
+                logging.info(
+                    "Object is within retention period: %s", object_key)
 
         return {"status": "Completed", "deleted_files": deleted_files}
 
