@@ -44,7 +44,7 @@ def fetch_keyword_differences(cursor):
         s.user_id,
         u.first_name,
         u.last_name,
-        u.phone_number,
+        u.email,
         k.keyword,
         s.notification_threshold,
         kd.difference,
@@ -65,18 +65,30 @@ def fetch_keyword_differences(cursor):
     return cursor.fetchall()
 
 
-def send_sns_notification(phone_number, message):
-    """Send notification via Amazon SNS"""
-    sns_client = boto3.client("sns", aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-                              aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"), region_name="eu-west-2")
-    try:
-        sns_client.publish(
-            PhoneNumber=phone_number,
-            Message=message,
-        )
-        print(f"Notification sent to {phone_number}")
-    except Exception as e:
-        print(f"Failed to send notification to {phone_number}: {e}")
+def send_email(email, message):
+    ses_client = boto3.client("ses", region_name="eu-west-2")
+    CHARSET = "UTF-8"
+
+    response = ses_client.send_email(
+        Destination={
+            "ToAddresses": [
+                email,
+            ],
+        },
+        Message={
+            "Body": {
+                "Text": {
+                    "Charset": CHARSET,
+                    "Data": message,
+                }
+            },
+            "Subject": {
+                "Charset": CHARSET,
+                "Data": "Trend Getter Update",
+            },
+        },
+        Source="trainee.ridwan.hamid@sigmalabs.co.uk",
+    )
 
 
 def main():
@@ -91,7 +103,7 @@ def main():
                 notification['keyword']}. It has {notification['direction']} by {
                 abs(notification['difference'])} mentions in the last hour. Check the dashboard for more details."""
         )
-        send_sns_notification(notification['phone_number'], message)
+        send_email(notification['email'], message)
         print(message)
 
     cursor.close()
