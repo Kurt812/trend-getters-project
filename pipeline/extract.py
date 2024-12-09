@@ -4,6 +4,8 @@ import os
 import logging
 import json
 import datetime
+
+from pytz import HOUR
 from httpx import Client
 import pandas as pd
 from boto3 import client
@@ -74,10 +76,11 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
         prefix = f"bluesky/{date}/"
         response = s3.list_objects_v2(
             Bucket=bucket, Prefix=prefix, Delimiter='/')
-
+        logging.info(prefix.split('/')[1])
         if 'Contents' in response:
             for obj in response['Contents']:
                 key = obj['Key']
+                hour = key.split("/")[-1].split(".")[0]
 
                 if key.endswith('.json') and key.count('/') == prefix.count('/'):
                     file_obj = s3.get_object(Bucket=bucket, Key=key)
@@ -89,11 +92,10 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
                             keyword, file_content)
 
                         sentiment_and_mention_data.append({
-                            'Date': date,
-                            'Hour': key.split("/")[-1].split(".")[0],
+                            'Date and Hour': f"{date} {hour}",
                             'Keyword': keyword,
                             'Average Sentiment': sentiment_and_mentions[0],
-                            'Total Mentions': sentiment_and_mentions[1],
+                            'Total Mentions': sentiment_and_mentions[1]
                         })
         else:
             logging.info(f"No files found in the folder for date {date}.")
@@ -129,3 +131,6 @@ def main(topic: list[str]) -> pd.DataFrame:
                                 'Related Terms'] = ",".join([suggestion['title']
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
+
+if __name__ == "__main__":
+    main('hi')
