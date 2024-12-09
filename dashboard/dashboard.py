@@ -336,6 +336,9 @@ def display_center_message() -> None:
 
 def main() -> None:
     """Main function to render the Streamlit app"""
+
+    st.set_page_config(page_title="Trend Getter",
+                       page_icon=":chart_with_upwards_trend:", layout="wide")
     st.title("Trend Getter Dashboard")
 
     if "user_verified" not in st.session_state:
