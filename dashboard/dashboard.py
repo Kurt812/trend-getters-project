@@ -1,13 +1,15 @@
 """Trend Getter Dashboard"""
 from os import environ as ENV
 import re
+import pandas as pd
+import altair as alt
 from dotenv import load_dotenv
 import streamlit as st
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from email_validator import validate_email, EmailNotValidError
-
+from queries import (get_mentions_avg_sentiment_for_keyword, get_overall_change_in_sentiment_mentions, get_related_words_stats)
 load_dotenv()
 
 API_ENDPOINT = ENV["API_ENDPOINT"]
@@ -346,6 +348,54 @@ def main() -> None:
         topic_and_subscription_ui()
         if st.session_state.get("is_new_user", False):
             display_center_message()
+
+    connection, cursor = get_connection()
+    data = get_mentions_avg_sentiment_for_keyword('fact', cursor)
+    display_visualisations(data)
+
+    metric_data = get_overall_change_in_sentiment_mentions('fact', cursor)
+    get_sentiment_overall_change_metric(metric_data)
+    get_total_mentions_change_metric(metric_data)
+
+def display_visualisations(data):
+    st.altair_chart(plot_total_mentions(data))
+    st.altair_chart(plot_avg_sentiment_over_time(data))
+    ...
+
+
+def plot_total_mentions(data: pd.DataFrame) -> alt.Chart:
+    """Function to plot graph of total mentions of given keyword(s)."""
+
+    chart = alt.Chart(data, title=f'Mentions Over Time').mark_line().encode(
+        x = alt.X('date_and_hour:T', title='Date', axis=alt.Axis(format='%d-%m-%Y')),
+        y = alt.Y('total_mentions:Q', title='Total Mentions'),
+        tooltip = [alt.Tooltip('total_mentions:Q', title='Total Mentions'),
+                   alt.Tooltip('date_and_hour:T', title='Date')]
+    )
+    return chart
+
+# add an info box to explain average sentiment score meaning maybe add a link to vadersentiment / something to do with calc
+def plot_avg_sentiment_over_time(data: pd.DataFrame) -> alt.Chart:
+    """Function to plot graph of average sentiment overtime for a given keyword(s)."""
+    chart = alt.Chart(data, title=f'Average Sentiment Over Time').mark_line().encode(
+        x = alt.X('date_and_hour:T', title='Date', axis=alt.Axis(format='%d-%m-%Y')),
+        y = alt.Y('avg_sentiment:Q', title='Average Sentiment'),
+        tooltip = [alt.Tooltip('avg_sentiment:Q', title='Average Sentiment'),
+                   alt.Tooltip('date_and_hour:T', title='Date')]
+    )
+    return chart
+
+def get_sentiment_overall_change_metric(data: pd.DataFrame):
+    """Function to show the metric displaying the overall change of average sentiment since the keyword being added into database."""
+    change = data.loc[0, 'percentage_change_avg_sentiment']
+    now = data.loc[0, 'avg_sentiment_now']
+    st.metric(label='Sentiment Change over 24hrs', value=f'{now:.2f}', delta=f'{change:.2f}%')
+
+def get_total_mentions_change_metric(data: pd.DataFrame):
+    """Function to show metric displaying overall change in total mentions over 24 hours."""
+    change = data.loc[0, 'percentage_change_mentions']
+    now = data.loc[0, 'total_mentions_now']
+    st.metric(label='Change in Total Mentions over 24hrs', value=f'{now}', delta=f'{change:.2f}%')
 
 
 if __name__ == "__main__":
