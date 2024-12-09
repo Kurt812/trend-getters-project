@@ -7,6 +7,7 @@ vaderSentiment
 atproto
 certifi
 boto3
+aioboto3
 freezegun
 flask
 streamlit
