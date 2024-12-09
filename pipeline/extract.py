@@ -5,7 +5,6 @@ import logging
 import json
 import datetime
 from httpx import Client
-from numpy import datetime_data
 import pandas as pd
 from boto3 import client
 from dotenv import load_dotenv
@@ -70,7 +69,6 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
 
     response = s3.list_objects_v2(
         Bucket=bucket, Prefix=prefix, Delimiter='/')
-
     if 'Contents' in response:
         sentiment_and_mention_data = []
 
