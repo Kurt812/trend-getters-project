@@ -1,72 +1,149 @@
-# """Test script for extract python file."""
-# # pylint: skip-file
+"""Test script for extract python file."""
+# pylint: skip-file
 
-# import pytest
-
-# import os
-# from unittest.mock import patch, MagicMock, ANY
-# import pandas as pd
-# from botocore.config import Config
-# import boto3
-# from botocore.exceptions import ClientError
-
-# from extract import (s3_connection, initialize_trend_request,
-#                      fetch_file_content, extract_bluesky_files,
-#                      multi_threading_matching, create_dataframe, fetch_suggestions,
-#                      main)
+import os
+import logging
+from unittest.mock import patch, MagicMock, ANY
+from datetime import datetime
+import pandas as pd
+import pytest
+from botocore.config import Config
+import boto3
+from botocore.exceptions import ClientError
+from extract import (s3_connection, average_sentiment_analysis,
+                     extract_s3_data, initialize_trend_request, fetch_suggestions, main)
 
 
-# @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
-# @patch('extract.client')
-# def test_successful_s3_connection(mock_client):
-#     """Test the successful connection to an S3 client without real-world side effects."""
-#     mock_config = Config(
-#         connect_timeout=5,
-#         read_timeout=10,
-#         retries={
-#             'max_attempts': 3,
-#             'mode': 'standard'
-#         },
-#         max_pool_connections=50
-#     )
-
-#     s3_connection()
-#     mock_client.assert_called_once_with(
-#         's3',
-#         aws_access_key_id='fake_access_key',
-#         aws_secret_access_key='fake_secret_key',
-#         config=ANY  # bypass direct comparison of Config object instances to avoid differences in memory allocation
-#     )
-
-#     actual_call = mock_client.call_args
-#     actual_config = actual_call.kwargs['config']
-
-#     assert actual_config.connect_timeout == mock_config.connect_timeout
-#     assert actual_config.read_timeout == mock_config.read_timeout
-#     assert actual_config.retries == mock_config.retries
-#     assert actual_config.max_pool_connections == mock_config.max_pool_connections
+@pytest.fixture
+def aws_env_vars():
+    with patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "fake_access_key", "AWS_SECRET_ACCESS_KEY": "fake_secret_key"}):
+        yield
 
 
-# @patch.dict(os.environ, {}, clear=True)
-# @patch('extract.client')
-# def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
-#     """Test that missing env variables will be handled gracefully. """
+@pytest.fixture
+def file_data():
+    """Fixture that provides a common data dictionary for sentiment analysis tests."""
+    return {
+        'python is great': {'Sentiment Score': {'compound': 0.5}},
+        'python coding': {'Sentiment Score': {'compound': 0.7}},
+        'python not good': {'Sentiment Score': {'compound': -0.3}},
+    }
 
-#     result = s3_connection()
-#     assert result is None
-#     mock_client.assert_not_called()
-#     assert 'Missing required AWS credentials in .env file' in caplog.text
+
+@patch('extract.client')
+def test_successful_s3_connection(mock_client, aws_env_vars):
+    """Test the successful connection to an S3 client without real-world side effects."""
+    mock_config = Config(
+        connect_timeout=5,
+        read_timeout=10,
+        retries={
+            'max_attempts': 3,
+            'mode': 'standard'
+        },
+        max_pool_connections=110
+    )
+
+    s3_connection()
+    mock_client.assert_called_once_with(
+        's3',
+        aws_access_key_id='fake_access_key',
+        aws_secret_access_key='fake_secret_key',
+        config=ANY
+    )
+
+    actual_call = mock_client.call_args
+    actual_config = actual_call.kwargs['config']
+
+    assert actual_config.connect_timeout == mock_config.connect_timeout
+    assert actual_config.read_timeout == mock_config.read_timeout
+    assert actual_config.retries == mock_config.retries
+    assert actual_config.max_pool_connections == mock_config.max_pool_connections
 
 
-# @patch('extract.TrendReq')
-# def test_initialize_trend_success(mock_trendreq):
-#     """Test successful initialisation of trend request."""
-#     mock_trendreq_instance = MagicMock()
-#     mock_trendreq.return_value = mock_trendreq_instance
+@patch.dict(os.environ, {}, clear=True)
+@patch('extract.client')
+def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
+    """Test that missing env variables will be handled gracefully. """
+    mock_client.return_value = None
+    with caplog.at_level(logging.INFO):
+        result = s3_connection()
+    assert result is None
+    mock_client.assert_called_once()
+    assert 'Missing required AWS credentials in .env file' in caplog.text
 
-#     initialize_trend_request()
 
-#     mock_trendreq.assert_called_once()
+@patch('extract.client')
+def test_s3_connection_connection_error(mock_client, aws_env_vars, caplog):
+    """Test that missing env variables will be handled gracefully. """
+    mock_client.side_effect = ConnectionError("Connection Error")
+
+    with caplog.at_level(logging.INFO):
+        result = s3_connection()
+    assert result is None
+    mock_client.assert_called_once()
+    assert 'An error occurred attempting to connect to S3:' in caplog.text
+
+
+@patch('extract.TrendReq')
+def test_initialize_trend_success(mock_trendreq):
+    """Test successful initialisation of trend request."""
+    mock_trendreq_instance = MagicMock()
+    mock_trendreq.return_value = mock_trendreq_instance
+
+    initialize_trend_request()
+
+    mock_trendreq.assert_called_once()
+
+
+def test_average_sentiment_analysis_non_zero_mentions(file_data):
+    """Test mentions non-zero case"""
+
+    keyword = 'python'
+
+    avg_sentiment, mentions = average_sentiment_analysis(keyword, file_data)
+
+    assert avg_sentiment == 0.3
+    assert mentions == 3
+
+
+def test_average_sentiment_analysis_no_mentions(file_data):
+    """Test case for no mentions of keyword found"""
+    keyword = 'sky'
+
+    avg_sentiment, mentions = average_sentiment_analysis(keyword, file_data)
+
+    assert avg_sentiment == 0
+    assert mentions == 0
+
+
+def test_average_sentiment_analysis_file_empty():
+    """Test case for when the file being searched is empty"""
+    keyword = 'sky'
+    file_data = {}
+
+    avg_sentiment, mentions = average_sentiment_analysis(keyword, file_data)
+    assert avg_sentiment == 0
+    assert mentions == 0
+
+
+@patch('datetime.datetime')
+@patch('extract.client')
+def test_extract_s3_success(mock_client, mock_datetime):
+    """Test successful extraction of data from s3 into pd.dataframe."""
+    mock_datetime.now.return_value = datetime(2024, 12, 9)
+    mock_datetime.strftime = datetime.strftime
+    mock_prefix = f'bluesky/{mock_datetime.now}'
+
+    # Mock response for s3.list_objects_v2
+    mock_list_objects_response = {
+        'Contents': [
+            {'Key': 'bluesky/2024-12-09/00.json',
+                'LastModified': datetime(2024, 12, 9, 1, 0, 1), 'Size': 1324861},
+            {'Key': 'bluesky/2024-12-09/01.json',
+                'LastModified': datetime(2024, 12, 9, 2, 0, 1), 'Size': 1411986},
+        ]
+    }
+    mock_client.list_objects_v2.return_value = mock_list_objects_response
 
 
 # @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
@@ -212,23 +289,23 @@
 #         create_dataframe(topics)
 
 
-# @patch('extract.TrendReq')
-# def test_fetch_suggestions(mock_trendreq):
-#     """Test function to ensure related words are returned successfully."""
+@patch('extract.TrendReq')
+def test_fetch_suggestions(mock_trendreq):
+    """Test function to ensure related words are returned successfully."""
 
-#     mock_pytrend_instance = MagicMock()
-#     keyword = 'good'
+    mock_pytrend_instance = MagicMock()
+    keyword = 'good'
 
-#     mock_related_words = [
-#         {'mid': 'i', 'title': 'Goodfellas', 'type': '1990 film'},
-#         {'mid': 'not', 'title': 'Goodyear', 'type': 'Topic'},
-#         {'mid': 'sure', 'title': 'The Good Doctor', 'type': 'Drama series'},
-#         {'mid': 'yes', 'title': 'DICK’S Sporting Goods', 'type': 'Topic'},
-#         {'mid': 'yes', 'title': 'Goodles', 'type': 'Topic'}]
-#     mock_pytrend_instance.suggestions.return_value = mock_related_words
-#     mock_trendreq.return_value = mock_pytrend_instance
-#     result = fetch_suggestions(mock_pytrend_instance, keyword)
-#     assert result == mock_related_words
+    mock_related_words = [
+        {'mid': 'i', 'title': 'Goodfellas', 'type': '1990 film'},
+        {'mid': 'not', 'title': 'Goodyear', 'type': 'Topic'},
+        {'mid': 'sure', 'title': 'The Good Doctor', 'type': 'Drama series'},
+        {'mid': 'yes', 'title': 'DICK’S Sporting Goods', 'type': 'Topic'},
+        {'mid': 'yes', 'title': 'Goodles', 'type': 'Topic'}]
+    mock_pytrend_instance.suggestions.return_value = mock_related_words
+    mock_trendreq.return_value = mock_pytrend_instance
+    result = fetch_suggestions(mock_pytrend_instance, keyword)
+    assert result == mock_related_words
 
 
 # @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key', 'S3_BUCKET_NAME': 'fake_bucket'})

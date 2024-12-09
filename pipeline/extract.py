@@ -70,7 +70,6 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
 
     response = s3.list_objects_v2(
         Bucket=bucket, Prefix=prefix, Delimiter='/')
-
     if 'Contents' in response:
         sentiment_and_mention_data = []
 
@@ -79,6 +78,7 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
 
             if key.endswith('.json') and key.count('/') == prefix.count('/'):
                 file_obj = s3.get_object(Bucket=bucket, Key=key)
+                print(file_obj)
                 file_content = json.loads(
                     file_obj['Body'].read().decode('utf-8'))
 
@@ -121,3 +121,7 @@ def main(topic: list[str]) -> pd.DataFrame:
                                 'Related Terms'] = ",".join([suggestion['title']
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
+
+
+if __name__ == "__main__":
+    main(['python'])
