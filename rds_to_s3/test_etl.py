@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pandas as pd
 from psycopg2 import (OperationalError, InterfaceError, DatabaseError)
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+from botocore.exceptions import (
+    NoCredentialsError, PartialCredentialsError, ClientError)
 from psycopg2.extras import RealDictCursor
 from sqlalchemy.exc import SQLAlchemyError
 
