@@ -63,36 +63,46 @@ def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
 
 
 def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
-    """Extracts relevant data from an S3 Bucket"""
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    prefix = f"bluesky/{today}/"
+    """Extracts relevant data from an S3 Bucket for the past 7 days."""
+    today = datetime.datetime.now()
+    date_list = [(today - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+                 for i in range(7)]
 
-    response = s3.list_objects_v2(
-        Bucket=bucket, Prefix=prefix, Delimiter='/')
-    if 'Contents' in response:
-        sentiment_and_mention_data = []
+    sentiment_and_mention_data = []
 
-        for obj in response['Contents']:
-            key = obj['Key']
+    for date in date_list:
+        prefix = f"bluesky/{date}/"
+        response = s3.list_objects_v2(
+            Bucket=bucket, Prefix=prefix, Delimiter='/')
 
-            if key.endswith('.json') and key.count('/') == prefix.count('/'):
-                file_obj = s3.get_object(Bucket=bucket, Key=key)
-                file_content = json.loads(
-                    file_obj['Body'].read().decode('utf-8'))
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                key = obj['Key']
 
-                for keyword in topic:
-                    sentiment_and_mentions = average_sentiment_analysis(
-                        keyword, file_content)
+                if key.endswith('.json') and key.count('/') == prefix.count('/'):
+                    file_obj = s3.get_object(Bucket=bucket, Key=key)
+                    file_content = json.loads(
+                        file_obj['Body'].read().decode('utf-8'))
 
-                    sentiment_and_mention_data.append({
-                        'Hour': key.split("/")[-1].split(".")[0],
-                        'Keyword': keyword,
-                        'Average Sentiment': sentiment_and_mentions[0],
-                        'Total Mentions': sentiment_and_mentions[1],
-                    })
+                    for keyword in topic:
+                        sentiment_and_mentions = average_sentiment_analysis(
+                            keyword, file_content)
+
+                        sentiment_and_mention_data.append({
+                            'Date': date,
+                            'Hour': key.split("/")[-1].split(".")[0],
+                            'Keyword': keyword,
+                            'Average Sentiment': sentiment_and_mentions[0],
+                            'Total Mentions': sentiment_and_mentions[1],
+                        })
+        else:
+            logging.info(f"No files found in the folder for date {date}.")
+
+    if sentiment_and_mention_data:
         return pd.DataFrame(sentiment_and_mention_data)
-    logging.info("No files found in the parent folder.")
-    raise ValueError("No files found in the parent folder.")
+
+    logging.info("No files found in the past 7 days.")
+    raise ValueError("No files found in the past 7 days.")
 
 
 def initialize_trend_request() -> TrendReq:
