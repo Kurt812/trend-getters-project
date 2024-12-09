@@ -23,18 +23,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
+          python3.9 -m pip install --upgrade pip
+          python3.9 -m pip install -r requirements.txt
 
       - name: Run pytest
         id: pytest
         run: |
-          pytest > test-results.txt || true
+          python3.9 -m pytest > test-results.txt || true
           pass_count=$(grep -Po '\d+(?= passed)' test-results.txt || echo "0")
           fail_count=$(grep -Po '\d+(?= failed)' test-results.txt || echo "0")
           skip_count=$(grep -Po '\d+(?= skipped)' test-results.txt || echo "0")
