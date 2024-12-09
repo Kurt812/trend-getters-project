@@ -258,14 +258,15 @@ def test_start_firehose_extraction_success(mock_firehose_client, mock_get_data):
 
 
 @freeze_time("2000-12-03 16:11:16")
+@patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key', 'S3_BUCKET_NAME': 'bucket'})
 @patch('upload.s3_connection')
 def test_successful_upload_to_s3(mock_s3, caplog):
     """Test content is uploaded to suitable bucket & object prefix."""
     mock_s3_instance = MagicMock()
     mock_s3.return_value = mock_s3_instance
 
-    mock_s3_key = 'None2000-12-03/16/20001203161116000000.txt'
-    mock_bucket = None
+    mock_s3_key = 'bluesky/2000-12-03/16/20001203161116000000.txt'
+    mock_bucket = 'bucket'
     mock_body = 'hello'
     mock_s3_instance.put_object.return_value = None
     with caplog.at_level(logging.INFO):
