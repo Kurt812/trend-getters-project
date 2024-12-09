@@ -9,7 +9,7 @@ import psycopg2.extras
 from psycopg2 import OperationalError, InterfaceError, DatabaseError
 from dotenv import load_dotenv
 import boto3
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -105,8 +105,11 @@ def s3_connection() -> boto3.client:
         s3 = boto3.client("s3", aws_access_key_id,
                           aws_secret_access_key)
         return s3
-    except (NoCredentialsError, PartialCredentialsError) as e:
-        logging.error("A BotoCore error occurred: %s", e)
+    except ClientError as e:
+        logging.error("An AWS ClientError occurred: %s", e.response['Error']['Message'])
+        raise
+    except EndpointConnectionError as e:
+        logging.error("Failed to connect to the S3 endpoint: %s", e)
         raise
     except Exception as e:
         logging.error(
