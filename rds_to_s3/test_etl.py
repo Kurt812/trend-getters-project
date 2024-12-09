@@ -8,8 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pandas as pd
 from psycopg2 import (OperationalError, InterfaceError, DatabaseError)
-from botocore.exceptions import (
-    NoCredentialsError, PartialCredentialsError, ClientError)
+from botocore.exceptions import ClientError, EndpointConnectionError
 from psycopg2.extras import RealDictCursor
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -152,25 +151,25 @@ def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
 
 
 @patch('boto3.client')
-def test_s3_connection_raises_nocredentialserror(mock_client, caplog):
+def test_s3_connection_raises_client_error(mock_client, caplog):
     """Test that s3 connection function can and will raise the NoCredentialsError."""
-    mock_client.side_effect = NoCredentialsError()
-    with pytest.raises(NoCredentialsError):
+    mock_client.side_effect = ClientError( error_response={'Error': {'Code': 'AuthFailure', 'Message': 'Authentication failure'}},
+        operation_name='connect')
+    with pytest.raises(ClientError):
         s3_connection()
-    assert 'A BotoCore error occurred: Unable to locate credentials' in caplog.text
+    assert 'An AWS ClientError occurred:' in caplog.text
 
     mock_client.assert_called_once_with(
         's3', 'fake_access_key', 'fake_secret_key')
 
 
 @patch('boto3.client')
-def test_s3_connection_raises_partialcredentialserror(mock_client, caplog):
+def test_s3_connection_raises_endpoint_connection_error(mock_client, caplog):
     """Test that s3 connection function can and will raise the PartialCredentialsError."""
-    mock_client.side_effect = PartialCredentialsError(
-        provider='aws', cred_var='SECRET_ACCESS_KEY')
-    with pytest.raises(PartialCredentialsError):
+    mock_client.side_effect = EndpointConnectionError(endpoint_url='fake_url')
+    with pytest.raises(EndpointConnectionError):
         s3_connection()
-    assert 'A BotoCore error occurred: Partial credentials found in aws' in caplog.text
+    assert 'Failed to connect to the S3 endpoint:' in caplog.text
 
     mock_client.assert_called_once_with(
         's3', 'fake_access_key', 'fake_secret_key')
