@@ -11,3 +11,4 @@ freezegun
 flask
 streamlit
 pytrends
+sqlalchemy
