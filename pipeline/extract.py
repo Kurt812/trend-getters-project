@@ -132,5 +132,3 @@ def main(topic: list[str]) -> pd.DataFrame:
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
 
-if __name__ == "__main__":
-    main('hi')
