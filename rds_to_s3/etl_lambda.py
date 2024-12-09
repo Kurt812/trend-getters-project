@@ -1,5 +1,5 @@
 """This script updates the archive data files in the S3 bucket"""
-from sqlalchemy import create_engine
+
 import os
 import logging
 from os import environ as ENV
@@ -10,6 +10,7 @@ from psycopg2 import OperationalError, InterfaceError, DatabaseError
 from dotenv import load_dotenv
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
