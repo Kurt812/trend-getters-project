@@ -13,3 +13,4 @@ flask
 streamlit
 pytrends
 sqlalchemy
+email_validator
