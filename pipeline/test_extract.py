@@ -6,18 +6,18 @@ import logging
 import json
 from unittest.mock import patch, MagicMock, ANY
 from datetime import datetime
+from io import BytesIO
 import pandas as pd
+import pandas.testing as pdt
 import pytest
 from botocore.config import Config
-import boto3
-from io import BytesIO
-from botocore.exceptions import ClientError
 from extract import (s3_connection, average_sentiment_analysis,
                      extract_s3_data, initialize_trend_request, fetch_suggestions, main)
 
 
 @pytest.fixture
 def aws_env_vars():
+    """Patched environment variables."""
     with patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "fake_access_key", "AWS_SECRET_ACCESS_KEY": "fake_secret_key", "S3_BUCKET_NAME": "bucket_name"}):
         yield
 
@@ -75,7 +75,7 @@ def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
 
 
 @patch('extract.client')
-def test_s3_connection_connection_error(mock_client, aws_env_vars, caplog):
+def test_s3_connection_connection_error(mock_client, caplog):
     """Test that missing env variables will be handled gracefully. """
     mock_client.side_effect = ConnectionError("Connection Error")
 
@@ -134,11 +134,9 @@ def test_extract_s3_success(mock_client, mock_datetime):
     """Test successful extraction of data from s3 into pd.dataframe."""
     mock_datetime.now.return_value = datetime(2024, 12, 9)
     mock_datetime.strftime = datetime.strftime
-    mock_prefix = f'bluesky/{mock_datetime.now}'
     bucket_name = 'bucket_name'
     topics = ['python']
 
-    # Mock response for s3.list_objects_v2
     mock_list_objects_response = {
         'Contents': [
             {'Key': 'bluesky/2024-12-09/00.json',
@@ -180,7 +178,6 @@ def test_extract_s3_no_files(mock_client, mock_datetime, caplog):
     """Test when no files are found, ValueError is raised."""
     mock_datetime.now.return_value = datetime(2024, 12, 9)
     mock_datetime.strftime = datetime.strftime
-    mock_prefix = f'bluesky/{mock_datetime.now}'
     bucket_name = 'bucket_name'
     topics = ['python']
 
@@ -190,10 +187,11 @@ def test_extract_s3_no_files(mock_client, mock_datetime, caplog):
             extract_s3_data(mock_client, bucket_name, topics)
 
 
+@patch('extract.fetch_suggestions')
 @patch('extract.initialize_trend_request')
 @patch('extract.extract_s3_data')
 @patch('extract.s3_connection')
-def test_main_success(mock_s3_conn, mock_extract_s3, mock_pytrend, aws_env_vars):
+def test_main_success(mock_s3_conn, mock_extract_s3, mock_pytrend, mock_suggestions, aws_env_vars):
     """Test main function is successfully run."""
     mock_s3 = MagicMock()
     mock_s3_conn.return_value = mock_s3
@@ -206,6 +204,8 @@ def test_main_success(mock_s3_conn, mock_extract_s3, mock_pytrend, aws_env_vars)
     ]
     extracted_df = pd.DataFrame(mock_data)
     mock_extract_s3.return_value = extracted_df
+    mock_suggestions.return_value = [
+        {'title': 'python tutorial'}, {'title': 'python programming'}]
 
     expected_data = [
         {'Hour': '00', 'Keyword': "python", "Average Sentiment": 0.6, "Total Mentions": 2,
@@ -213,6 +213,7 @@ def test_main_success(mock_s3_conn, mock_extract_s3, mock_pytrend, aws_env_vars)
         {"Hour": "01", "Keyword": "python", "Average Sentiment": -0.3, "Total Mentions": 2,
          "Related Terms": "python tutorial,python programming"}
     ]
+    expected_df = pd.DataFrame(expected_data)
 
     result = main(topic)
     assert isinstance(result, pd.DataFrame)
@@ -222,149 +223,7 @@ def test_main_success(mock_s3_conn, mock_extract_s3, mock_pytrend, aws_env_vars)
     assert set(result.columns) == expected_columns
     mock_extract_s3.assert_called_once_with(mock_s3, 'bucket_name', ['python'])
     mock_pytrend.assert_called_once()
-
-
-# @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
-# @patch('extract.s3_connection')
-# def test_fetch_file_content_success(mock_s3):
-#     """Test successful file content fetched."""
-#     mock_file_obj = MagicMock()
-#     mock_file_content = 'mock keyword in this topic'
-#     mock_file_obj['Body'].read.return_value.decode.return_value = mock_file_content
-#     mock_s3.get_object.return_value = mock_file_obj
-
-#     result = fetch_file_content(mock_s3, 'mock_filename', ['topic'])
-#     assert result.get('Text') == mock_file_content
-
-
-# @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
-# @patch('extract.s3_connection')
-# def test_unsuccessful_file_content_not_found(mock_s3):
-#     """Test case when a file is not found with keyword."""
-#     mock_file_obj = MagicMock()
-#     mock_file_content = 'This is a file with no matching keywords.'
-#     mock_file_obj['Body'].read.return_value.decode.return_value = mock_file_content
-#     mock_s3.get_object.return_value = mock_file_obj
-#     result = fetch_file_content(mock_s3, 'mock_filename', ['topic'])
-#     assert result is None
-
-
-# @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
-# @patch('extract.s3_connection')
-# def test_unsuccessful_file_content_filenotfound(mock_s3, caplog):
-#     """Test when no files in S3 bucket, error is handled gracefully."""
-
-#     mock_s3.get_object.side_effect = ClientError(
-#         {"Error": {"Code": "NoSuchKey", "Message": "The specified key does not exist"}},
-#         'GetObject'
-#     )
-
-#     with pytest.raises(FileNotFoundError):
-#         fetch_file_content(mock_s3, 'mock_filename', ['topic'])
-#     assert 'No files found in S3: An error occurred (NoSuchKey) when calling the GetObject operation: The specified key does not exist' in caplog.text
-
-#     for record in caplog.records:
-#         assert record.levelname == 'ERROR'
-
-
-# @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)
-# @patch('extract.s3_connection')
-# def test_successful_extract_bluesky_files(mock_s3):
-#     """Test successful extraction of bluesky files from S3 bucket."""
-#     mock_first_page = {
-#         'Contents': [
-#             {'Key': 'file1.txt'},
-#             {'Key': 'file2.txt'}
-#         ],
-#         'NextContinuationToken': 'fake_token'
-#     }
-#     mock_second_page = {
-#         'Contents': [
-#             {'Key': 'file3.txt'},
-#             {'Key': 'file4.txt'}
-#         ],
-#         'NextContinuationToken': None
-#     }
-#     mock_s3.list_objects_v2.side_effect = [mock_first_page, mock_second_page]
-
-#     result = extract_bluesky_files(mock_s3)
-#     assert result == ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt']
-#     assert mock_s3.list_objects_v2.call_count == 2
-
-
-# @patch.dict(os.environ, {}, clear=True)
-# @patch('extract.s3_connection')
-# def test_unsuccessful_extract_bluesky_missing_env(mock_s3):
-#     """Test for case when missing .env variables."""
-#     with pytest.raises(KeyError):
-#         extract_bluesky_files(mock_s3)
-
-
-# @patch('extract.s3_connection')
-# @patch('extract.fetch_file_content')
-# def test_multi_threading_matching_successful(mock_fetch, mock_s3):
-#     """Test multithreading works as planned to give expected results."""
-#     mock_fetch.side_effect = [
-#         {'Text': 'File content 1 with topic1', 'Keyword': 'topic1'},
-#         None,
-#         {'Text': 'File content 3 with topic3', 'Keyword': 'topic3'},
-#     ]
-#     topics = ['topic1', 'topic2']
-#     filenames = ['file1', 'file2', 'file3']
-#     result = multi_threading_matching(mock_s3, topics, filenames)
-#     assert len(result) == 2
-#     assert {'Text': 'File content 1 with topic1',
-#             'Keyword': 'topic1'} in result
-
-
-# @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key', 'S3_BUCKET_NAME': 'fake_bucket'})
-# @patch('extract.multi_threading_matching')
-# @patch('extract.s3_connection')
-# @patch('extract.fetch_file_content')
-# def test_create_dataframe(mock_fetch, mock_s3, mock_multithread):
-#     """Test that the overall result from the create dataframe is correct."""
-#     topics = ['topic1', 'topic2']
-
-#     mock_s3_client = MagicMock()
-#     mock_s3_client.list_objects_v2.return_value = {
-#         'Contents': [
-#             {'Key': 'file1.txt'},
-#             {'Key': 'file2.txt'}
-#         ]
-#     }
-#     mock_s3.return_value = mock_s3_client
-
-#     mock_multithread.return_value = [{
-#         'Text': 'File content 1 with topic1', 'Keyword': 'topic1'},
-#         {'Text': 'File content 2 with topic2', 'Keyword': 'topic2'}]
-#     mock_fetch.return_value = [{
-#         'Text': 'File content 1 with topic1', 'Keyword': 'topic1'},
-#         {'Text': 'File content 2 with topic2', 'Keyword': 'topic2'}]
-#     result = create_dataframe(topics)
-#     assert isinstance(result, pd.DataFrame)
-#     assert 'Text' in result.columns
-#     assert 'Keyword' in result.columns
-
-
-# @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key', 'S3_BUCKET_NAME': 'fake_bucket'})
-# @patch('extract.multi_threading_matching')
-# @patch('extract.s3_connection')
-# @patch('extract.fetch_file_content')
-# def test_unsuccessful_create_dataframe(mock_fetch, mock_s3, mock_multithread):
-#     """Test that the overall result from the create dataframe is correct."""
-#     topics = ['topic1', 'topic2']
-
-#     mock_s3_client = MagicMock()
-#     mock_s3_client.list_objects_v2.return_value = {
-#         'Contents': [
-#             {'Key': 'file1.txt'},
-#             {'Key': 'file2.txt'}
-#         ]
-#     }
-#     mock_s3.return_value = mock_s3_client
-#     mock_multithread.return_value = []
-#     with pytest.raises(ValueError):
-#         create_dataframe(topics)
+    pdt.assert_frame_equal(result, expected_df)
 
 
 @patch('extract.TrendReq')
@@ -384,43 +243,3 @@ def test_fetch_suggestions(mock_trendreq):
     mock_trendreq.return_value = mock_pytrend_instance
     result = fetch_suggestions(mock_pytrend_instance, keyword)
     assert result == mock_related_words
-
-
-# @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key', 'S3_BUCKET_NAME': 'fake_bucket'})
-# @patch('extract.TrendReq')
-# @patch('extract.multi_threading_matching')
-# @patch('extract.s3_connection')
-# @patch('extract.fetch_file_content')
-# def test_main_success(mock_fetch, mock_s3, mock_multithread, mock_trendreq):
-#     """Test main function will extract data from s3 and google trends."""
-#     topics = ['topic1']
-
-#     mock_s3_client = MagicMock()
-#     mock_s3_client.list_objects_v2.return_value = {
-#         'Contents': [
-#             {'Key': 'file1.txt'},
-#             {'Key': 'file2.txt'}
-#         ]
-#     }
-#     mock_s3.return_value = mock_s3_client
-
-#     mock_multithread.return_value = [{
-#         'Text': 'File content 1 with topic1', 'Keyword': 'topic1'},
-#         {'Text': 'File content 2 with topic1', 'Keyword': 'topic1'}]
-#     mock_fetch.return_value = [{
-#         'Text': 'File content 1 with topic1', 'Keyword': 'topic1'},
-#         {'Text': 'File content 2 with topic1', 'Keyword': 'topic1'}]
-#     mock_pytrend_instance = MagicMock()
-
-#     mock_related_words = [
-#         {'mid': 'i', 'title': 'topic2', 'type': 'random'}]
-#     mock_pytrend_instance.suggestions.return_value = mock_related_words
-#     mock_trendreq.return_value = mock_pytrend_instance
-
-#     result = main(topics)
-#     assert isinstance(result, pd.DataFrame)
-#     assert 'Related Terms' in result.columns
-#     topic1_related = result[result['Keyword']
-#                             == 'topic1']['Related Terms'].iloc[0]
-#     expected_related1 = 'topic2'
-#     assert topic1_related == expected_related1
