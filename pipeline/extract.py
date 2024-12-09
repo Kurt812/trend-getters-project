@@ -76,7 +76,7 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
         prefix = f"bluesky/{date}/"
         response = s3.list_objects_v2(
             Bucket=bucket, Prefix=prefix, Delimiter='/')
-        logging.info(prefix.split('/')[1])
+
         if 'Contents' in response:
             for obj in response['Contents']:
                 key = obj['Key']
