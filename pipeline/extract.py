@@ -4,8 +4,6 @@ import os
 import logging
 import json
 import datetime
-
-from pytz import HOUR
 from httpx import Client
 import pandas as pd
 from boto3 import client
