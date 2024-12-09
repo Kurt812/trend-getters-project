@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS keyword_recordings (
     keywords_id BIGINT,
     total_mentions SMALLINT,
     avg_sentiment FLOAT,
-    date_and_hour VARCHAR(30),
+    date_and_hour TIMESTAMP,
     PRIMARY KEY (keyword_recordings_id),
     FOREIGN KEY (keywords_id) REFERENCES keywords(keywords_id)
 );

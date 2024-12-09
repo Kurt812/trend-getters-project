@@ -4,6 +4,7 @@ import datetime
 from os import environ as ENV
 import logging
 import pandas as pd
+from datetime import datetime
 import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import connection as connect, cursor as curs
@@ -53,7 +54,7 @@ def insert_keyword_recordings(conn: connect,
     """Inserts data into the keyword_recordings table"""
 
     for row in dataframe.to_dict(orient='records'):
-        date_and_hour = row['Date and Hour']
+        date_and_hour = datetime.strptime(row['Date and Hour'], "%Y-%m-%d %H")
         total_mentions = row['Total Mentions']
         average_sentiment = row['Average Sentiment']
         keyword_id = row['keyword_id']
