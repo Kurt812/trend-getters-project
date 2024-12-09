@@ -1,6 +1,7 @@
 """Test script for load python file."""
 # pylint: skip-file
 
+import datetime
 import pytest
 import os
 import logging
@@ -38,7 +39,7 @@ def env(configs):
 def mock_df():
     return pd.DataFrame({
         'Hour': ['08:00', '09:00', '10:00'],
-        'Count': [15, 22, 18],
+        'Total Mentions': [15, 22, 18],
         'Average Sentiment': [0.75, 0.60, 0.80],
         'keyword_id': [1, 2, 3]
     })
@@ -126,22 +127,27 @@ def test_keyword_already_exists_no_insert(mock_setup):
     mock_conn.commit.assert_not_called()
 
 
+@patch('load.datetime')
 @patch('load.setup_connection')
-def test_insert_keyword_recordings_success(mock_setup, mock_df):
+def test_insert_keyword_recordings_success(mock_setup, mock_datetime, mock_df):
     """Test successful insertion of data into keyword_recordings_table."""
 
     mock_conn = MagicMock()
     mock_curs = MagicMock()
     mock_setup.return_value = (mock_conn, mock_curs)
+    mock_recorded_at = datetime.datetime(
+        2024, 12, 5, 0, 0, 0)
+    mock_datetime.datetime.now.return_value = mock_recorded_at
 
     insert_keyword_recordings(mock_conn, mock_curs, mock_df)
     assert mock_curs.execute.call_count == 3
     assert mock_conn.commit.call_count == 3
+
     mock_curs.execute.assert_any_call(
         """INSERT INTO keyword_recordings
-                       (keywords_id, total_mentions, avg_sentiment, hour_of_day)
-                       VALUES (%s, %s, %s, %s)""",
-        (3, 18, 0.80, '10:00')
+                       (keywords_id, total_mentions, avg_sentiment, hour_of_day, recorded_at)
+                       VALUES (%s, %s, %s, %s, %s)""",
+        (3, 18, 0.80, '10:00', mock_recorded_at)
     )
 
 

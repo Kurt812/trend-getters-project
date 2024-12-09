@@ -1,16 +1,15 @@
-"""Extracts necessary information from S3 Bucket"""
+"""Extracts data from S3 Bucket"""
 
-from collections import defaultdict
 import os
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from boto3 import client
-from botocore.config import Config
-from botocore.exceptions import ClientError
+import json
+import datetime
+from httpx import Client
 import pandas as pd
+from boto3 import client
 from dotenv import load_dotenv
 from pytrends.request import TrendReq
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from botocore.config import Config
 
 load_dotenv(".env")
 
@@ -19,6 +18,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
+
 
 def s3_connection() -> client:
     """Connects to an S3 and configs S3 Connection"""
@@ -29,7 +29,7 @@ def s3_connection() -> client:
             'max_attempts': 3,
             'mode': 'standard'
         },
-        max_pool_connections=50
+        max_pool_connections=110
     )
     try:
         aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -37,7 +37,6 @@ def s3_connection() -> client:
 
         if not aws_access_key or not aws_secret_key:
             logging.error("Missing required AWS credentials in .env file.")
-            raise
         s3 = client(
             "s3",
             aws_access_key_id=aws_access_key,
@@ -49,101 +48,61 @@ def s3_connection() -> client:
         return None
     return s3
 
-def extract_bluesky_files(s3: client) -> list[str]:
-    """Accesses files from S3 and returns a list of texts with the topic present"""
-    continuation_token = None
-    file_names = []
 
-    bucket_parameters = {'Bucket': os.environ.get("S3_BUCKET_NAME")}
-    if not bucket_parameters.get('Bucket'):
-        raise KeyError("Missing environment variable: S3_BUCKET_NAME")
-
-    while True:
-        if continuation_token:
-            bucket_parameters['ContinuationToken'] = continuation_token
-
-        response = s3.list_objects_v2(**bucket_parameters)
-        contents = response.get("Contents")
-
-        if not contents:
-            break
-
-        for file in contents:
-            if file['Key'].endswith(".txt"):
-                file_names.append(file['Key'])
-
-        continuation_token = response.get('NextContinuationToken')
-        if not continuation_token:
-            break
-
-    return file_names
-
-def fetch_file_content(s3: client, file_name: str, topic: list[str]) -> dict:
-    """Checks files from S3 for keywords and returns relevant data if keyword is found"""
-    try:
-        file_obj = s3.get_object(Bucket=os.environ.get("S3_BUCKET_NAME"), Key=file_name)
-        file_content = file_obj['Body'].read().decode('utf-8')
-        hour_folder = file_name.split('/')[-2]  # Extracts the hour folder (e.g., "16/")
-
-        keyword_counts = defaultdict(int)
-        sentiment_scores = defaultdict(int)
-
-        for keyword in topic:
-            count = file_content.count(keyword)
-            if count > 0:
-                logging.info("Keyword %s found in %s %d times", keyword, file_name, count)
-                sentiment_scores[keyword] = add_sentiment_scores(file_content)
-                keyword_counts[keyword] += count
-
-        return {
-            "Hour": hour_folder,
-            "Counts": dict(keyword_counts),
-            "Sentiment Score" : sentiment_scores
-        }
-
-    except ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchKey':
-            logging.error("File not found in S3: %s", e)
-            raise FileNotFoundError(f"File '{file_name}' not found in S3.") from e
-
-    return None
-
-def multi_threading_matching(s3: client, topic: list[str], file_names: list[str]) -> pd.DataFrame:
-    """Uses multi-threading to extract matching text and keyword counts from S3 files"""
-    hourly_data = defaultdict(lambda: defaultdict(int))
-    hourly_sentiments = defaultdict(lambda: defaultdict(list))
-
-    with ThreadPoolExecutor(max_workers=40) as thread_pool:
-        submitted_tasks = [thread_pool.submit(fetch_file_content, s3, file_name, topic)
-                           for file_name in file_names]
-
-        for completed_task in as_completed(submitted_tasks):
-            extracted_data = completed_task.result()
-            if extracted_data:
-                hour = extracted_data["Hour"]
-
-                for keyword, count in extracted_data["Counts"].items():
-                    hourly_data[hour][keyword] += count
-
-                for keyword, sentiment_score in extracted_data["Sentiment Score"].items():
-                    hourly_sentiments[hour][keyword].append(sentiment_score['compound'])
-
-    hourly_rows = []
-    for hour, counts in hourly_data.items():
-        for keyword, count in counts.items():
-            average_sentiment = sum(hourly_sentiments[hour][keyword]) / len(hourly_sentiments[hour][keyword])
-            hourly_rows.append({"Hour": hour, "Keyword": keyword,
-                                "Count": count, "Average Sentiment" : average_sentiment})
-    mentions_per_hour = pd.DataFrame(hourly_rows)
-
-    return mentions_per_hour
+def average_sentiment_analysis(keyword: str, file_data: dict) -> tuple:
+    """Calculates the average sentiment for a keyword in a .json file"""
+    total_sentiment = 0
+    mentions = 0
+    for text, sentiment in file_data.items():
+        if keyword in text:
+            total_sentiment += sentiment['Sentiment Score']['compound']
+            mentions += 1
+    if mentions == 0:
+        return (total_sentiment, mentions)
+    return total_sentiment/mentions, mentions
 
 
-def add_sentiment_scores(firehouse_text: str) -> float:
-    """Find and add the sentiment scores of each message."""
-    analyzer = SentimentIntensityAnalyzer()
+def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
+    """Extracts relevant data from an S3 Bucket for the past 7 days."""
+    today = datetime.datetime.now()
+    date_list = [(today - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+                 for i in range(7)]
 
-    return analyzer.polarity_scores(firehouse_text)
+    sentiment_and_mention_data = []
+
+    for date in date_list:
+        prefix = f"bluesky/{date}/"
+        response = s3.list_objects_v2(
+            Bucket=bucket, Prefix=prefix, Delimiter='/')
+
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                key = obj['Key']
+
+                if key.endswith('.json') and key.count('/') == prefix.count('/'):
+                    file_obj = s3.get_object(Bucket=bucket, Key=key)
+                    file_content = json.loads(
+                        file_obj['Body'].read().decode('utf-8'))
+
+                    for keyword in topic:
+                        sentiment_and_mentions = average_sentiment_analysis(
+                            keyword, file_content)
+
+                        sentiment_and_mention_data.append({
+                            'Date': date,
+                            'Hour': key.split("/")[-1].split(".")[0],
+                            'Keyword': keyword,
+                            'Average Sentiment': sentiment_and_mentions[0],
+                            'Total Mentions': sentiment_and_mentions[1],
+                        })
+        else:
+            logging.info(f"No files found in the folder for date {date}.")
+
+    if sentiment_and_mention_data:
+        return pd.DataFrame(sentiment_and_mention_data)
+
+    logging.info("No files found in the past 7 days.")
+    raise ValueError("No files found in the past 7 days.")
 
 
 def initialize_trend_request() -> TrendReq:
@@ -157,24 +116,16 @@ def fetch_suggestions(pytrend: TrendReq, keyword: str) -> list[dict]:
 
 
 def main(topic: list[str]) -> pd.DataFrame:
-    """Extracts data from S3 Bucket and creates two summary DataFrames"""
+    """Main function to run extract script"""
     s3 = s3_connection()
-    filenames = extract_bluesky_files(s3)
-    hourly_statistics = multi_threading_matching(s3, topic, filenames)
-    hourly_statistics['Related Terms'] = ""
+
+    bucket = os.environ.get("S3_BUCKET_NAME")
+
+    extracted_dataframe = extract_s3_data(s3, bucket, topic)
 
     pytrend = initialize_trend_request()
     for keyword in topic:
-        hourly_statistics.loc[hourly_statistics['Keyword']
-                              == keyword, 'Related Terms'] = ",".join(
-            [suggestion['title']
-                for suggestion in fetch_suggestions(pytrend, keyword)]
-        )
-    return hourly_statistics
-
-
-if __name__ == "__main__":
-    topics = ['sun','rain']
-    extracted_dataframe, hourly_counts_dataframe = main(topics)
-    logging.info("\nExtracted Dataframe:\n%s", extracted_dataframe)
-    logging.info("\nHourly Counts Dataframe:\n%s", hourly_counts_dataframe)
+        extracted_dataframe.loc[extracted_dataframe['Keyword'] == keyword,
+                                'Related Terms'] = ",".join([suggestion['title']
+                                                             for suggestion in fetch_suggestions(pytrend, keyword)])
+    return extracted_dataframe

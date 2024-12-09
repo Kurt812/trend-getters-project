@@ -43,7 +43,7 @@
 
 #### Architecture Diagram
 
-![Architecture Diagram](/images/architecture_diagram.png)
+![Architecture Diagram](/images/trendgineers.drawio.png)
 
 #### ERD Diagram
 

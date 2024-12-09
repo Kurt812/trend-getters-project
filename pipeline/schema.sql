@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     user_id INT GENERATED ALWAYS AS IDENTITY,
     first_name VARCHAR(30) NOT NULL,
     last_name VARCHAR(30) NOT NULL,
-    phone_number VARCHAR(20) UNIQUE,
+    email VARCHAR(255) UNIQUE,
     PRIMARY KEY (user_id)
 );
 
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS keyword_recordings (
     total_mentions SMALLINT,
     avg_sentiment FLOAT,
     hour_of_day SMALLINT,
+    recorded_at TIMESTAMP,
     PRIMARY KEY (keyword_recordings_id),
     FOREIGN KEY (keywords_id) REFERENCES keywords(keywords_id)
 );
