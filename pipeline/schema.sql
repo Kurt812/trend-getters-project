@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     user_id INT GENERATED ALWAYS AS IDENTITY,
     first_name VARCHAR(30) NOT NULL,
     last_name VARCHAR(30) NOT NULL,
-    phone_number VARCHAR(20) UNIQUE,
+    email VARCHAR(255) UNIQUE,
     PRIMARY KEY (user_id)
 );
 

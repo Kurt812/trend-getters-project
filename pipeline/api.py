@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 
 @app.route("/topics", methods=["POST"])
-def add_topic() -> None:
+def add_topic()-> None:
     """API endpoint to add new topics to RDS."""
     data = request.get_json()
     topic_name = data.get("topic_name")
@@ -18,6 +18,12 @@ def add_topic() -> None:
     main([topic_name])
 
     return jsonify({"message": "Topic added successfully", "topic": topic_name}), 200
+
+
+@app.route("/topics", methods=["GET"])
+def get_topics()-> None:
+    """API endpoint to retrieve list of all posted topics."""
+    return jsonify({"topics": topics}), 200
 
 
 if __name__ == "__main__":
