@@ -51,8 +51,8 @@ def setup_engine():
                 "One or more required environment variables are missing.")
 
         engine = create_engine(
-            f"postgresql+psycopg2://{db_username}:{db_password}@{
-                db_host}:{db_port}/{db_name}"
+            f"""postgresql+psycopg2://{db_username}:{db_password}@{
+                db_host}:{db_port}/{db_name}"""
         )
         return engine
     except SQLAlchemyError as e:
