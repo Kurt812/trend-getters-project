@@ -1,18 +1,19 @@
 """Test file for etl.py: Moving data from RDS to S3."""
+
 # pylint: skip-file
 
-import pytest
 import os
 import logging
+from unittest.mock import MagicMock, patch
+import pytest
 import pandas as pd
-from psycopg2 import OperationalError, InterfaceError, DatabaseError
+from psycopg2 import (OperationalError, InterfaceError, DatabaseError)
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
-from unittest.mock import MagicMock, patch, ANY
 from psycopg2.extras import RealDictCursor
 from sqlalchemy.exc import SQLAlchemyError
 
 from etl_lambda import (setup_engine, setup_connection, s3_connection, download_csv_from_s3,
-                        upload_to_s3, delete_local_file, fetch_subscription_data_from_rds, clear_keyword_recordings, lambda_handler)
+                        upload_to_s3, delete_local_file, fetch_subscription_data_from_rds, clear_keyword_recordings, lambda_handler, REMOVE_QUERY, UPDATE_QUERY)
 
 
 @pytest.fixture()
@@ -27,6 +28,7 @@ def configs():
         "ACCESS_KEY_ID": "fake_access_key",
         "SECRET_ACCESS_KEY": "fake_secret_key",
         "SCHEMA_NAME": "fake_schema",
+        "S3_BUCKET_NAME": "bucket_name"
 
     }
 
@@ -52,7 +54,7 @@ def test_setup_engine(mock_engine, mock_env):
 
 
 @patch('etl_lambda.create_engine')
-def test_SQLAlchemyError_setup_engine(mock_engine, caplog):
+def test_sql_alchemy_error_setup_engine(mock_engine, caplog):
     """Test SQLAlchemyError raised when something goes wrong with the SQLAlchemy library."""
     mock_engine.side_effect = SQLAlchemyError('Simulated SQLAlchemyError')
 
@@ -76,7 +78,7 @@ def test_exception_setup_engine(mock_engine, caplog):
 
 
 @patch('etl_lambda.psycopg2.connect')
-def test_setup_connection_success(mock_connect, mock_env, caplog):
+def test_setup_connection_success(mock_connect, caplog):
     """Test successful connection and schema setting."""
 
     mock_conn = MagicMock()
@@ -92,7 +94,7 @@ def test_setup_connection_success(mock_connect, mock_env, caplog):
 
 
 @patch('etl_lambda.psycopg2.connect')
-def test_setup_connection_operational_error(mock_connect, mock_env, caplog):
+def test_setup_connection_operational_error(mock_connect, caplog):
     """Test Operational Error is raised when there is a problem connecting to PostgreSQL
      database or executing database operation."""
 
@@ -105,7 +107,7 @@ def test_setup_connection_operational_error(mock_connect, mock_env, caplog):
 
 
 @patch('etl_lambda.psycopg2.connect')
-def test_setup_connection_interface_error(mock_connect, mock_env, caplog):
+def test_setup_connection_interface_error(mock_connect, caplog):
     """Test Interface Error is raised when there is a problem with the cursor."""
     mock_conn = MagicMock()
     mock_connect.return_value = mock_conn
@@ -120,7 +122,7 @@ def test_setup_connection_interface_error(mock_connect, mock_env, caplog):
 
 
 @patch('etl_lambda.psycopg2.connect')
-def test_setup_connection_database_error(mock_connect, mock_env, caplog):
+def test_setup_connection_database_error(mock_connect, caplog):
     """Test Database Error is raised when there is a problem connecting to database due to server
     configuration for example, i.e. during making the connection."""
     mock_connect.side_effect = DatabaseError('Simulated DatabaseError')
@@ -163,7 +165,7 @@ def test_s3_connection_raises_nocredentialserror(mock_client, caplog):
 
 
 @patch('boto3.client')
-def test_s3_connection_raises_partialcredentialserror(mock_client, mock_env, caplog):
+def test_s3_connection_raises_partialcredentialserror(mock_client, caplog):
     """Test that s3 connection function can and will raise the PartialCredentialsError."""
     mock_client.side_effect = PartialCredentialsError(
         provider='aws', cred_var='SECRET_ACCESS_KEY')
@@ -246,7 +248,7 @@ def test_download_csv_clienterror(mock_s3_conn, mock_read_csv, caplog):
 
 @patch('etl_lambda.pd.read_csv')
 @patch('etl_lambda.s3_connection')
-def test_download_csv_EmptyDataError(mock_s3_conn, mock_read_csv, caplog, mock_env):
+def test_download_csv_emptydataerror(mock_s3_conn, mock_read_csv, caplog):
     """Test that if the file cannot be found in bucket, the appropriate error will be raised."""
     mock_s3 = MagicMock()
     mock_s3_conn.return_value = mock_s3
@@ -327,9 +329,8 @@ def test_upload_s3_filenotfound(mock_s3_conn, caplog):
     assert f'Local file {file_name} not found for upload:' in caplog.text
 
 
-@patch('etl_lambda.pd.read_csv')
 @patch('etl_lambda.s3_connection')
-def test_download_csv_clienterror(mock_s3_conn, mock_read_csv, caplog):
+def test_upload_s3_clienterror(mock_s3_conn, caplog):
     """Test that if the file cannot be found in bucket, the appropriate error will be raised."""
     mock_s3 = MagicMock()
     mock_s3_conn.return_value = mock_s3
@@ -342,11 +343,12 @@ def test_download_csv_clienterror(mock_s3_conn, mock_read_csv, caplog):
     }
     mock_s3.upload_file.side_effect = ClientError(
         error_response=error_response,
-        operation_name="UploadFile"
+        operation_name='UploadFile'
     )
-    file_name = "test_file.csv"
-    object_name = "object_name"
-    bucket_name = "test_bucket"
+
+    file_name = 'test_file.csv'
+    object_name = 'object_name'
+    bucket_name = 'test_bucket'
 
     with caplog.at_level(logging.ERROR):
         with pytest.raises(ClientError):
@@ -424,3 +426,137 @@ def test_delete_local_file_permissionerror(mock_remove, mock_exists, caplog):
 
     assert f'Permission denied while trying to delete /tmp/{
         file_name}:' in caplog.text
+
+
+@patch('etl_lambda.delete_local_file')
+@patch('etl_lambda.upload_to_s3')
+@patch('etl_lambda.pd.DataFrame.to_csv')
+@patch('etl_lambda.download_csv_from_s3')
+@patch('etl_lambda.pd.read_sql')
+@patch('etl_lambda.setup_engine')
+def test_fetch_sub_data_rds_success(mock_setup_engine, mock_read_sql, mock_download, mock_to_csv, mock_upload, mock_delete_file):
+    """Test that the latest data can be fetched from the RDS successfully."""
+    mock_engine = MagicMock()
+    mock_setup_engine.return_value = mock_engine
+
+    mock_new_data = pd.DataFrame({
+        'keywords': ['python'],
+        'total mentions': [23],
+        'avg sentiment': [0.12]
+    })
+    mock_read_sql.return_value = mock_new_data
+
+    mock_existing_data = pd.DataFrame({
+        'keywords': ['hello'],
+        'total mentions': [36],
+        'avg sentiment': [0.87]
+    })
+    mock_download.return_value = mock_existing_data
+
+    fake_query = 'fake query'
+    file_name = 'test_file.csv'
+    folder_name = 'folder_name'
+    bucket_name = 'test_bucket'
+    file_path = f'{folder_name}/{file_name}'
+
+    fetch_subscription_data_from_rds(
+        fake_query, file_name, bucket_name, folder_name)
+    mock_read_sql.assert_called_once_with(fake_query, mock_engine)
+    mock_download.assert_called_once_with(bucket_name, file_path, file_name)
+
+    mock_to_csv.assert_called_once_with(f'/tmp/{file_name}', index=False)
+    mock_upload.assert_called_once_with(
+        bucket_name, file_name, file_path)
+    mock_delete_file.assert_called_once_with(file_name)
+
+
+@patch('etl_lambda.download_csv_from_s3')
+@patch('etl_lambda.pd.read_sql')
+@patch('etl_lambda.setup_engine')
+def test_fetch_sub_data_rds_exception(mock_setup_engine, mock_read_sql, mock_download, caplog):
+    """Test that if the fetch query cannot be executed, exception is raised."""
+    mock_engine = MagicMock()
+    mock_setup_engine.return_value = mock_engine
+    fake_query = 'fake query'
+    file_name = 'test_file.csv'
+    folder_name = 'folder_name'
+    bucket_name = 'test_bucket'
+    mock_read_sql.side_effect = Exception()
+    with caplog.at_level(logging.INFO):
+        with pytest.raises(Exception):
+            fetch_subscription_data_from_rds(
+                fake_query, file_name, bucket_name, folder_name)
+
+    mock_read_sql.assert_called_once_with(fake_query, mock_engine)
+    assert 'Error while executing query:' in caplog.text
+    mock_download.assert_not_called()
+
+
+@patch('etl_lambda.setup_connection')
+def test_clear_keyword_recordings_success(mock_setup_conn):
+    """Test successful clearance of data older than 24 hours from the RDS."""
+    mock_conn = MagicMock()
+    mock_curs = MagicMock()
+    mock_setup_conn.return_value = mock_conn, mock_curs
+
+    remove_query = REMOVE_QUERY
+    clear_keyword_recordings()
+
+    mock_curs.execute.assert_called_once_with(remove_query)
+    mock_conn.commit.assert_called_once()
+    mock_conn.close.assert_called_once()
+
+
+@patch('etl_lambda.setup_connection')
+def test_clear_keyword_recordings_exception(mock_setup_conn, caplog):
+    """Test successful clearance of data older than 24 hours from the RDS."""
+    mock_conn = MagicMock()
+    mock_curs = MagicMock()
+    mock_setup_conn.return_value = mock_conn, mock_curs
+
+    remove_query = REMOVE_QUERY
+    mock_curs.execute.side_effect = Exception()
+    with caplog.at_level(logging.INFO):
+        with pytest.raises(Exception):
+            clear_keyword_recordings()
+
+    mock_curs.execute.assert_called_once_with(remove_query)
+    mock_conn.commit.assert_not_called()
+    mock_conn.close.assert_called_once()
+    assert 'Error while executing query:' in caplog.text
+
+
+@patch.dict('etl_lambda.ENV', {"S3_BUCKET_NAME": "test_bucket"}, clear=True)
+@patch('etl_lambda.clear_keyword_recordings')
+@patch('etl_lambda.fetch_subscription_data_from_rds')
+def test_lambda_handler_success(mock_fetch_rds, mock_clear_recs):
+    """Test successful lambda handler function."""
+    file_name = 'keyword_recording.csv'
+    folder_name = 'long_term_keyword_data'
+    bucket_name = 'test_bucket'
+
+    lambda_handler(MagicMock(), MagicMock())
+
+    mock_fetch_rds.assert_called_once_with(
+        UPDATE_QUERY, file_name, bucket_name, folder_name)
+    mock_clear_recs.assert_called_once()
+
+
+@patch.dict('etl_lambda.ENV', {"S3_BUCKET_NAME": "test_bucket"}, clear=True)
+@patch('etl_lambda.clear_keyword_recordings')
+@patch('etl_lambda.fetch_subscription_data_from_rds')
+def test_lambda_handler_exception(mock_fetch_rds, mock_clear_recs, caplog):
+    """Test successful lambda handler function."""
+    file_name = 'keyword_recording.csv'
+    folder_name = 'long_term_keyword_data'
+    bucket_name = 'test_bucket'
+
+    mock_fetch_rds.side_effect = Exception()
+    with caplog.at_level(logging.INFO):
+        lambda_handler(MagicMock(), MagicMock())
+
+    mock_fetch_rds.assert_called_once_with(
+        UPDATE_QUERY, file_name, bucket_name, folder_name)
+    mock_clear_recs.assert_not_called()
+
+    assert f'Error processing {file_name}' in caplog.text
