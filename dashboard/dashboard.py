@@ -6,20 +6,14 @@ import streamlit as st
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from email_validator import validate_email, EmailNotValidError
 
 load_dotenv()
 
 API_ENDPOINT = ENV["API_ENDPOINT"]
-EMAIL_REGEX = """(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/
-=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\
-x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:
-[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|
-2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|
-a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|
-\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"""
 
 
-def get_connection() -> psycopg2.extensions.connection:
+def get_connection() -> tuple:
     """Establish and return a database connection"""
     conn = psycopg2.connect(
         user=ENV["DB_USERNAME"],
@@ -34,7 +28,7 @@ def get_connection() -> psycopg2.extensions.connection:
     return conn, cursor
 
 
-def fetch_user_keywords(user_id):
+def fetch_user_keywords(user_id: int) -> list[str]:
     """Fetch a user's existing keywords"""
     query = """SELECT k.keyword
                FROM subscription s
@@ -47,14 +41,15 @@ def fetch_user_keywords(user_id):
     return [result["keyword"] for result in results]
 
 
-def fetch_keyword_id(keyword) -> list:
+def fetch_keyword_id(keyword: str) -> list:
     """Fetch available keywords from the database"""
-    query = "SELECT * FROM keywords WHERE keyword = %s;"
+    query = "SELECT keywords_id FROM keywords WHERE keyword = %s;"
     result = execute_query(query, (keyword,), fetch_one=True)
     return result
 
 
-def subscribe_to_keyword(user_id, keywords_id, subscription_status, notification_threshold) -> None:
+def subscribe_to_keyword(user_id: int, keywords_id: int, subscription_status: bool,
+                          notification_threshold: int) -> None:
     """Subscribe a user to a keyword with a given threshold, 
     inserting if not exists and updating if exists"""
     check_query = """
@@ -81,7 +76,7 @@ def subscribe_to_keyword(user_id, keywords_id, subscription_status, notification
                       subscription_status, notification_threshold))
 
 
-def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
+def execute_query(query: str, params: tuple = None, fetch_one: bool = False) -> dict:
     """Execute a query and return results if applicable"""
     try:
         conn, cursor = get_connection()
@@ -98,7 +93,12 @@ def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
 
 def is_valid_email(email: str) -> bool:
     """Check if entered email is valid"""
-    return bool(re.match(EMAIL_REGEX, email))
+    try:
+        validate_email(email)
+        return True
+    except EmailNotValidError:
+        return False
+
 
 
 def check_email_exists(email: str) -> bool:
@@ -252,8 +252,9 @@ def display_keywords(existing_keywords: list, new_topic: str) -> list:
 
 def subscription_form(existing_keywords: list) -> None:
     """Displays the form for subscribing to keywords"""
+    st.subheader("Subscribe to Keywords")
+
     if existing_keywords:
-        st.subheader("Subscribe to Keywords")
         with st.form("subscription_form"):
             selected_keyword = st.selectbox(
                 "Choose a keyword to subscribe:", existing_keywords
