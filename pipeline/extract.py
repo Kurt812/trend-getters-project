@@ -5,7 +5,6 @@ import logging
 import json
 import datetime
 from httpx import Client
-from numpy import datetime_data
 import pandas as pd
 from boto3 import client
 from dotenv import load_dotenv
