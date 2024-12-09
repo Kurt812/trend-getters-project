@@ -5,7 +5,7 @@ import os
 import logging
 import json
 from unittest.mock import patch, MagicMock, ANY
-from datetime import datetime
+import datetime
 from io import BytesIO
 import pandas as pd
 import pandas.testing as pdt
@@ -127,39 +127,38 @@ def test_average_sentiment_analysis_file_empty():
     assert avg_sentiment == 0
     assert mentions == 0
 
-
-@patch('datetime.datetime')
+@patch('extract.average_sentiment_analysis')
+@patch('extract.datetime')
 @patch('extract.client')
-def test_extract_s3_success(mock_client, mock_datetime):
+def test_extract_s3_success(mock_client, mock_datetime, mock_sentiment_analysis):
     """Test successful extraction of data from s3 into pd.dataframe."""
-    mock_datetime.now.return_value = datetime(2024, 12, 9)
-    mock_datetime.strftime = datetime.strftime
+    mock_datetime.datetime.now.return_value = datetime.datetime(2024, 12, 9)
+    mock_datetime.timedelta = datetime.timedelta
+    mock_datetime.datetime.strftime = datetime.datetime.strftime
     bucket_name = 'bucket_name'
     topics = ['python']
+    
+    mock_client.list_objects_v2.side_effect = lambda Bucket, Prefix, Delimiter: (
+    {'Contents': [{'Key': f'{Prefix}00.json', 'LastModified': datetime.datetime(2024, 12, 9, 1, 0, 1), 'Size': 1324861}]}
+    if Prefix.startswith('bluesky/2024-12-09/') else
+    {'Contents': [{'Key': f'{Prefix}00.json', 'LastModified': datetime.datetime(2024, 12, 8, 1, 0, 1), 'Size': 1324861}]}
+    if Prefix.startswith('bluesky/2024-12-08/') else
+    {})
 
-    mock_list_objects_response = {
-        'Contents': [
-            {'Key': 'bluesky/2024-12-09/00.json',
-                'LastModified': datetime(2024, 12, 9, 1, 0, 1), 'Size': 1324861},
-            {'Key': 'bluesky/2024-12-09/01.json',
-                'LastModified': datetime(2024, 12, 9, 2, 0, 1), 'Size': 1411986},
-        ]
-    }
-    mock_client.list_objects_v2.return_value = mock_list_objects_response
 
-    mock_json_content_1 = {
+    mock_json_content = [{
         'python is great': {'Sentiment Score': {'compound': 0.5}},
         'python coding': {'Sentiment Score': {'compound': 0.7}}
-    }
-
-    mock_json_content_2 = {
+    },
+    {
         'python not good': {'Sentiment Score': {'compound': -0.3}},
         'python bad': {'Sentiment Score': {'compound': -0.6}}
-    }
+    }]
 
     mock_client.get_object.side_effect = [
-        {'Body': BytesIO(json.dumps(mock_json_content_1).encode('utf-8'))},
-        {'Body':  BytesIO(json.dumps(mock_json_content_2).encode('utf-8'))}
+    {'Body': BytesIO(json.dumps(mock_json_content[i % 2]).encode('utf-8'))} for i in range(7)]       
+    mock_sentiment_analysis.side_effect = [
+    (0.6, 2) if i % 2 == 0 else (-0.45, 2) for i in range(7)
     ]
 
     result = extract_s3_data(mock_client, bucket_name, topics)
@@ -176,8 +175,8 @@ def test_extract_s3_success(mock_client, mock_datetime):
 @patch('extract.client')
 def test_extract_s3_no_files(mock_client, mock_datetime, caplog):
     """Test when no files are found, ValueError is raised."""
-    mock_datetime.now.return_value = datetime(2024, 12, 9)
-    mock_datetime.strftime = datetime.strftime
+    mock_datetime.now.return_value = datetime.datetime(2024, 12, 9)
+    mock_datetime.strftime = datetime.datetime.strftime
     bucket_name = 'bucket_name'
     topics = ['python']
 
