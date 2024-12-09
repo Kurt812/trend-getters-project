@@ -20,12 +20,6 @@ def add_topic()-> None:
     return jsonify({"message": "Topic added successfully", "topic": topic_name}), 200
 
 
-@app.route("/topics", methods=["GET"])
-def get_topics()-> None:
-    """API endpoint to retrieve list of all posted topics."""
-    return jsonify({"topics": topics}), 200
-
-
 if __name__ == "__main__":
     # app.run(host="0.0.0.0", port=5000, debug=True)
     app.run(debug=True)
