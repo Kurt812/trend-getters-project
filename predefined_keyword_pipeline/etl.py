@@ -1,3 +1,4 @@
+import time
 import psycopg2
 import logging
 from datetime import datetime
@@ -162,31 +163,129 @@ def process_keywords_in_text(df: pd.DataFrame, db_keywords: set, conn):
     return db_keywords | new_keywords
 
 
-def run_etl():
+def list_files_in_s3(bucket_name: str, prefix: str = '') -> list:
     """
-    Run the ETL pipeline.
+    List files in an S3 bucket with an optional prefix.
     """
-    # Fetch raw data from S3
-    raw_data = fetch_raw_data(
-        file_key="20241206230050607806.json", bucket_name="trendgineers-test-bucket")
+    s3 = boto3.client('s3')
+    try:
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        if 'Contents' in response:
+            # Extract file keys
+            return [item['Key'] for item in response['Contents']]
+        else:
+            print("No files found in the bucket.")
+            return []
+    except Exception as e:
+        print(f"Error listing files in bucket {bucket_name}: {e}")
+        return []
 
+
+def run_etl_for_files(bucket_name: str, file_keys: list):
+    """
+    Run the ETL pipeline for a list of file keys.
+    """
     # Connect to the database
     conn = setup_connection()
 
     # Fetch existing keywords from the database
     db_keywords = fetch_keywords_from_db(conn)
 
-    # Process text to identify and add missing keywords
-    all_keywords = process_keywords_in_text(raw_data, db_keywords, conn)
+    # Process each file
+    for file_key in file_keys:
+        print(f"Processing file: {file_key}")
 
-    # Calculate metrics for all keywords
-    metrics = calculate_metrics(raw_data, all_keywords)
+        try:
+            # Fetch raw data from S3
+            raw_data = fetch_raw_data(
+                file_key=file_key, bucket_name=bucket_name)
 
-    # Store metrics back into the database
-    store_metrics_in_rds(metrics, conn)
+            # Process text to identify and add missing keywords
+            all_keywords = process_keywords_in_text(
+                raw_data, db_keywords, conn)
 
+            # Calculate metrics for all keywords
+            metrics = calculate_metrics(raw_data, all_keywords)
+
+            # Store metrics back into the database
+            store_metrics_in_rds(metrics, conn)
+
+        except Exception as e:
+            print(f"Error processing file {file_key}: {e}")
+
+    # Close the database connection
     conn.close()
 
 
+def run_etl_in_batches(bucket_name: str, prefix: str, batch_size: int = 1000):
+    """
+    Run the ETL pipeline in batches, processing the next 'batch_size' files every 10 minutes.
+    """
+    processed_files = 0  # Tracks the number of files already processed
+
+    while True:  # Infinite loop to run every 10 minutes
+        # Get the next batch of file keys
+        file_keys = list_files_in_s3(bucket_name, prefix)[
+            processed_files:processed_files + batch_size]
+
+        if not file_keys:
+            print("No more files to process. Waiting for new files...")
+        else:
+            print(
+                f"Processing files {processed_files + 1} to {processed_files + len(file_keys)}")
+            try:
+                run_etl_for_files(bucket_name, file_keys)
+                # Update the pointer to the next batch
+                processed_files += len(file_keys)
+            except Exception as e:
+                print(f"Error during ETL processing: {e}")
+
+        # Wait for 10 minutes before the next batch
+        print("Waiting for 5 minutes before processing the next batch...")
+        time.sleep(300)  # 5 minutes - 300s
+
+
 if __name__ == "__main__":
-    run_etl()
+    # Define S3 bucket and folder prefix
+    bucket_name = "trendgineers-raw-firehose-data"
+    prefix = "bluesky/2024-12-06/23/"
+
+    # Run the ETL in batches
+    run_etl_in_batches(bucket_name, prefix)
+
+# Query for getting aggregated_avg_sentiment of a word
+# SELECT AVG(kr.avg_sentiment) AS aggregated_avg_sentiment
+# FROM keywords k
+# JOIN keyword_recordings kr ON k.keywords_id = kr.keywords_id
+# WHERE k.keyword = 'crypto'
+
+
+# Query for getting aggregated_mentions of a word
+# SELECT SUM(kr.total_mentions) AS aggregated_mentions
+# FROM keywords k
+# JOIN keyword_recordings kr ON k.keywords_id = kr.keywords_id
+# WHERE k.keyword = 'crypto';
+
+
+# Query for getting sentiment and mentions over time (hourly)
+# SELECT
+# DATE_TRUNC('hour', kr.hour_of_day) AS time_period,
+# AVG(kr.avg_sentiment) AS avg_sentiment,
+# SUM(kr.total_mentions) AS total_mentions
+# FROM keywords k
+# JOIN keyword_recordings kr ON k.keywords_id = kr.keywords_id
+# WHERE k.keyword = 'crypto'
+# GROUP BY time_period
+# ORDER BY time_period ASC
+
+# Query for getting sentiment and mentions over time (10 mins)
+# SELECT
+# DATE_TRUNC('minute', kr.hour_of_day) +
+# (FLOOR(EXTRACT(MINUTE FROM kr.hour_of_day) / 10) * INTERVAL '10 minutes') AS time_period,
+# AVG(kr.avg_sentiment) AS avg_sentiment,
+# SUM(kr.total_mentions) AS total_mentions
+# FROM keywords k
+# JOIN keyword_recordings kr ON k.keywords_id = kr.keywords_id
+# WHERE k.keyword = 'crypto'
+# GROUP BY time_period
+# ORDER BY time_period ASC
