@@ -3,12 +3,14 @@
 
 import os
 import logging
+import json
 from unittest.mock import patch, MagicMock, ANY
 from datetime import datetime
 import pandas as pd
 import pytest
 from botocore.config import Config
 import boto3
+from io import BytesIO
 from botocore.exceptions import ClientError
 from extract import (s3_connection, average_sentiment_analysis,
                      extract_s3_data, initialize_trend_request, fetch_suggestions, main)
@@ -16,7 +18,7 @@ from extract import (s3_connection, average_sentiment_analysis,
 
 @pytest.fixture
 def aws_env_vars():
-    with patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "fake_access_key", "AWS_SECRET_ACCESS_KEY": "fake_secret_key"}):
+    with patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "fake_access_key", "AWS_SECRET_ACCESS_KEY": "fake_secret_key", "S3_BUCKET_NAME": "bucket_name"}):
         yield
 
 
@@ -133,6 +135,8 @@ def test_extract_s3_success(mock_client, mock_datetime):
     mock_datetime.now.return_value = datetime(2024, 12, 9)
     mock_datetime.strftime = datetime.strftime
     mock_prefix = f'bluesky/{mock_datetime.now}'
+    bucket_name = 'bucket_name'
+    topics = ['python']
 
     # Mock response for s3.list_objects_v2
     mock_list_objects_response = {
@@ -144,6 +148,80 @@ def test_extract_s3_success(mock_client, mock_datetime):
         ]
     }
     mock_client.list_objects_v2.return_value = mock_list_objects_response
+
+    mock_json_content_1 = {
+        'python is great': {'Sentiment Score': {'compound': 0.5}},
+        'python coding': {'Sentiment Score': {'compound': 0.7}}
+    }
+
+    mock_json_content_2 = {
+        'python not good': {'Sentiment Score': {'compound': -0.3}},
+        'python bad': {'Sentiment Score': {'compound': -0.6}}
+    }
+
+    mock_client.get_object.side_effect = [
+        {'Body': BytesIO(json.dumps(mock_json_content_1).encode('utf-8'))},
+        {'Body':  BytesIO(json.dumps(mock_json_content_2).encode('utf-8'))}
+    ]
+
+    result = extract_s3_data(mock_client, bucket_name, topics)
+    assert not result.empty
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == 2
+    assert 'Keyword' in result.columns
+    assert 'Average Sentiment' in result.columns
+    assert 'Total Mentions' in result.columns
+    assert 'Hour' in result.columns
+
+
+@patch('datetime.datetime')
+@patch('extract.client')
+def test_extract_s3_no_files(mock_client, mock_datetime, caplog):
+    """Test when no files are found, ValueError is raised."""
+    mock_datetime.now.return_value = datetime(2024, 12, 9)
+    mock_datetime.strftime = datetime.strftime
+    mock_prefix = f'bluesky/{mock_datetime.now}'
+    bucket_name = 'bucket_name'
+    topics = ['python']
+
+    mock_client.list_objects_v2.return_value = {}
+    with caplog.at_level(logging.INFO):
+        with pytest.raises(ValueError):
+            extract_s3_data(mock_client, bucket_name, topics)
+
+
+@patch('extract.initialize_trend_request')
+@patch('extract.extract_s3_data')
+@patch('extract.s3_connection')
+def test_main_success(mock_s3_conn, mock_extract_s3, mock_pytrend, aws_env_vars):
+    """Test main function is successfully run."""
+    mock_s3 = MagicMock()
+    mock_s3_conn.return_value = mock_s3
+    topic = ['python']
+    mock_data = [
+        {"Hour": "00", "Keyword": "python",
+            "Average Sentiment": 0.6, "Total Mentions": 2},
+        {"Hour": "01", "Keyword": "python",
+            "Average Sentiment": -0.3, "Total Mentions": 2},
+    ]
+    extracted_df = pd.DataFrame(mock_data)
+    mock_extract_s3.return_value = extracted_df
+
+    expected_data = [
+        {'Hour': '00', 'Keyword': "python", "Average Sentiment": 0.6, "Total Mentions": 2,
+         "Related Terms": "python tutorial,python programming"},
+        {"Hour": "01", "Keyword": "python", "Average Sentiment": -0.3, "Total Mentions": 2,
+         "Related Terms": "python tutorial,python programming"}
+    ]
+
+    result = main(topic)
+    assert isinstance(result, pd.DataFrame)
+    expected_columns = {'Hour', 'Keyword',
+                        'Average Sentiment', 'Total Mentions', 'Related Terms'}
+
+    assert set(result.columns) == expected_columns
+    mock_extract_s3.assert_called_once_with(mock_s3, 'bucket_name', ['python'])
+    mock_pytrend.assert_called_once()
 
 
 # @patch.dict('os.environ', {'S3_BUCKET_NAME': 'fake_bucket'}, clear=True)

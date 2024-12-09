@@ -78,7 +78,6 @@ def extract_s3_data(s3: Client, bucket: str, topic: list[str]) -> pd.DataFrame:
 
             if key.endswith('.json') and key.count('/') == prefix.count('/'):
                 file_obj = s3.get_object(Bucket=bucket, Key=key)
-                print(file_obj)
                 file_content = json.loads(
                     file_obj['Body'].read().decode('utf-8'))
 
@@ -123,5 +122,5 @@ def main(topic: list[str]) -> pd.DataFrame:
     return extracted_dataframe
 
 
-if __name__ == "__main__":
-    main(['python'])
+# if __name__ == "__main__":
+#     main(['python'])
