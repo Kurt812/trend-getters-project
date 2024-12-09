@@ -1,4 +1,4 @@
-"""Test file for etl.py: Moving data from RDS to S3."""
+"""Test file for etl_lambda.py: Moving data from RDS to S3."""
 
 # pylint: skip-file
 
