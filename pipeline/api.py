@@ -1,6 +1,5 @@
 """Api.py: script setting up api to post new topics to."""
 
-import re
 from flask import Flask, request, jsonify
 from load import main
 
@@ -10,7 +9,7 @@ topics = []
 
 
 @app.route("/topics", methods=["POST"])
-def add_topic()-> None:
+def add_topic() -> None:
     """API endpoint to add new topics to RDS."""
     data = request.get_json()
     topic_name = data.get("topic_name")
@@ -29,7 +28,7 @@ def add_topic()-> None:
 
 
 @app.route("/topics", methods=["GET"])
-def get_topics()-> None:
+def get_topics() -> None:
     """API endpoint to retrieve list of all posted topics."""
     return jsonify({"topics": topics}), 200
 
