@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from dotenv import load_dotenv
 
+
 def setup_connection() -> psycopg2.extensions.cursor:
     """Retrieve database connection and cursor"""
     try:
@@ -24,7 +25,8 @@ def setup_connection() -> psycopg2.extensions.cursor:
         curs = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         curs.execute(f"SET SEARCH_PATH TO {ENV['SCHEMA_NAME']};")
     except psycopg2.OperationalError as e:
-        logging.error("Operational error while connecting to the database: %s", e)
+        logging.error(
+            "Operational error while connecting to the database: %s", e)
         raise
     except Exception as e:
         logging.error("Error connecting to database: %s", e)
@@ -37,7 +39,8 @@ def extract_keywords_recordings_data(curs: psycopg2.extensions.cursor,
                                      keyword: str) -> pd.DataFrame:
     """Extracts the keyword recordings"""
     try:
-        curs.execute("SELECT keywords_id FROM keywords WHERE keyword = %s", (keyword,))
+        curs.execute(
+            "SELECT keywords_id FROM keywords WHERE keyword = %s", (keyword,))
         keyword_id = curs.fetchone()['keywords_id']
         curs.execute("""SELECT * FROM keyword_recordings
                      WHERE keywords_id = %s
@@ -53,16 +56,17 @@ def data_transformation(keyword_df: pd.DataFrame) -> pd.DataFrame:
     keyword_df['date_and_hour'] = pd.to_datetime(keyword_df['date_and_hour'])
     keyword_df = keyword_df.sort_values(by='date_and_hour')
 
-
     keyword_df['hour_of_day'] = keyword_df['date_and_hour'].dt.hour
     keyword_df['day_of_week'] = keyword_df['date_and_hour'].dt.dayofweek
 
+    keyword_df['Mentions from 1 hour ago'] = keyword_df['total_mentions'].shift(
+        1)
+    keyword_df['Mentions from 2 hours ago'] = keyword_df['total_mentions'].shift(
+        2)
+    keyword_df['Average of last 3 hours'] = keyword_df['total_mentions'].rolling(
+        window=3).mean()
 
-    keyword_df['Mentions from 1 hour ago'] = keyword_df['total_mentions'].shift(1)
-    keyword_df['Mentions from 2 hours ago'] = keyword_df['total_mentions'].shift(2)
-    keyword_df['Average of last 3 hours'] = keyword_df['total_mentions'].rolling(window=3).mean()
-
-    keyword_df = keyword_df.dropna() # Getting rid of first two hours
+    keyword_df = keyword_df.dropna()  # Getting rid of first two hours
     # because we don't want NaNs when training
 
     return keyword_df
@@ -75,7 +79,6 @@ def train_model(keyword_dataframe: pd.DataFrame) -> tuple:
     filtered_dataframe = keyword_dataframe[input_columns]
     mentions_from_dataframe = keyword_dataframe['total_mentions']
 
-
     scaler = StandardScaler()
     scaled_dataframe = scaler.fit_transform(filtered_dataframe)
     # Ensures that inputs with different scales
@@ -83,10 +86,9 @@ def train_model(keyword_dataframe: pd.DataFrame) -> tuple:
     # don't disproportinately affect the model (Normalises)
 
     training_inp, training_out, testing_inp, testing_out = train_test_split(scaled_dataframe,
-                                                        mentions_from_dataframe,
-                                                        test_size=0.2,
-                                                        random_state=42)
-
+                                                                            mentions_from_dataframe,
+                                                                            test_size=0.2,
+                                                                            random_state=42)
 
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(training_inp, testing_inp)
@@ -107,25 +109,25 @@ def predict_next_hour(model: RandomForestRegressor, scaler: StandardScaler,
     return next_hour_prediction
 
 
-def main(keyword: str) -> float:
+def main_predict(keyword: str) -> float:
     """Runs functions to train a model to predict the total mentions for the next hour"""
     load_dotenv()
     curs = setup_connection()
-
 
     keyword_dataframe = extract_keywords_recordings_data(curs, keyword)
 
     enriched_dataframe = data_transformation(keyword_dataframe)
 
-
     model, scaler, input_columns = train_model(enriched_dataframe)
 
     most_recent_data = enriched_dataframe.tail(1)
-    prediction = predict_next_hour(model, scaler, input_columns, most_recent_data)
+    prediction = predict_next_hour(
+        model, scaler, input_columns, most_recent_data)
 
     return prediction[0]
 
+
 if __name__ == "__main__":
     keyword_for_prediction = "hi"
-    main(keyword_for_prediction)
-    print(main(keyword_for_prediction))
+    main_predict(keyword_for_prediction)
+    print(main_predict(keyword_for_prediction))

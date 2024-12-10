@@ -15,7 +15,7 @@ from email_validator import validate_email, EmailNotValidError
 from queries import (get_mentions_avg_sentiment_for_keyword,
                      get_overall_change_in_sentiment_mentions, get_keyword_id)
 from combined_data import main_combine
-
+from predict_mentions import main_predict
 load_dotenv()
 API_ENDPOINT = ENV["API_ENDPOINT"]
 
@@ -409,8 +409,10 @@ def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12
                     [last_submitted_keyword], archival_data)
                 st.altair_chart(chart, use_container_width=True)
             with right_1:
+                st.write("\n")
                 get_total_mentions_change_metric(data)
             with right_2:
+                st.write("\n")
                 get_sentiment_overall_change_metric(data)
         elif len(selected_keywords) == 1:
             data = data_upto_12hrs[data_upto_12hrs['keyword']
@@ -419,8 +421,10 @@ def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12
                 chart = plot_total_mentions(selected_keywords, archival_data)
                 st.altair_chart(chart, use_container_width=True)
             with right_1:
+                st.write("\n")
                 get_total_mentions_change_metric(data)
             with right_2:
+                st.write("\n")
                 get_sentiment_overall_change_metric(data)
         elif len(selected_keywords) == 2:
             print(data_upto_12hrs)
@@ -475,6 +479,32 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
     """Second layer of metrics and graphs to be displayed."""
     # get prediction value
     # show key words, and link to submission of new topic
+    left, right = st.columns([2, 4])
+
+    # we put explore other words perhaps
+    # or predictions
+
+    if len(selected_keywords) == 0:
+        last_submitted_keyword = existing_keywords[-1]
+        keyword_id = fetch_keyword_id(
+            last_submitted_keyword).get('keywords_id')
+        archival_data = archival_data[archival_data['keywords_id']
+                                      == keyword_id]
+
+        data = data_upto_12hrs[data_upto_12hrs['keyword']
+                               == last_submitted_keyword]
+
+        with left:
+            st.markdown(
+                f"In the next hour, we predict the total mentions of **{last_submitted_keyword} to be** \n ")
+            prediction = main_predict(last_submitted_keyword)
+            print(archival_data.columns)
+            print(archival_data)
+            st.metric(label='', value=prediction)
+        with right:
+            chart = plot_avg_sentiment_over_time(
+                [last_submitted_keyword], archival_data)
+            st.altair_chart(chart, use_container_width=True)
 
 
 def get_percentage_change_mentions_sentiment(keywords: list, data: pd.DataFrame) -> pd.DataFrame:
@@ -584,13 +614,13 @@ def plot_avg_sentiment_over_time(keywords: list, data: pd.DataFrame) -> alt.Char
 
     chart = alt.Chart(filtered_data, title=f'Average Sentiment Over Time').mark_line().encode(
         x=alt.X('date_and_hour:T', title='Date',
-                axis=alt.Axis(format='%d-%m-%Y')),
+                axis=alt.Axis(format='%d-%m')),
         y=alt.Y('avg_sentiment:Q', title='Average Sentiment'),
         color=alt.Color('keyword:N', title='Keyword:'),
         tooltip=[alt.Tooltip('keyword:N', title='Keyword'),
                  alt.Tooltip('avg_sentiment:Q', title='Average Sentiment'),
                  alt.Tooltip('date_and_hour:T', title='Date')]
-    ).interactive
+    ).interactive()
     return chart
 
 
