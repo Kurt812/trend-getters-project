@@ -9,7 +9,6 @@ import pandas as pd
 from boto3 import client
 from dotenv import load_dotenv
 from pytrends.request import TrendReq
-from botocore.config import Config
 
 load_dotenv(".env")
 
@@ -22,27 +21,13 @@ logging.basicConfig(
 
 def s3_connection() -> client:
     """Connects to an S3 and configs S3 Connection"""
-    config = Config(
-        connect_timeout=5,
-        read_timeout=10,
-        retries={
-            'max_attempts': 3,
-            'mode': 'standard'
-        },
-        max_pool_connections=110
-    )
     try:
         aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
         aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
         if not aws_access_key or not aws_secret_key:
             logging.error("Missing required AWS credentials in .env file.")
-        s3 = client(
-            "s3",
-            aws_access_key_id=aws_access_key,
-            aws_secret_access_key=aws_secret_key,
-            config=config
-        )
+        s3 = client("s3")
     except ConnectionError as e:
         logging.error('An error occurred attempting to connect to S3: %s', e)
         return None
@@ -129,4 +114,3 @@ def main(topic: list[str]) -> pd.DataFrame:
                                 'Related Terms'] = ",".join([suggestion['title']
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
-
