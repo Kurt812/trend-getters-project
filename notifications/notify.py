@@ -1,13 +1,8 @@
 from os import environ as ENV
-import os
 import boto3
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-import base64
-
-with open("logo.png", "rb") as image_file:
-    base64_image = base64.b64encode(image_file.read()).decode("utf-8")
 
 def setup_connection():
     """Retrieve database connection and cursor"""
@@ -99,7 +94,7 @@ def send_email(email, message):
     print(response)
 
 
-def main():
+def lambda_handler(event, context):
     load_dotenv()
     conn, cursor = setup_connection()
 
@@ -114,7 +109,7 @@ def main():
                 <div class="header">
                     <h2 style="color: #333;">Hello {notification['first_name']}!</h2>
                 </div>
-                <div style="background-color: #eef; padding: 15px; border-left: 4px solid #007BFF; margin-bottom: 20px;">
+                <div style="background-color: #eef; padding: 15px; border-left: 4px solid #a3333e; margin-bottom: 20px;">
                     <p>
                         You are receiving this email because there has been significant activity in your subscription for 
                         <strong>{notification['keyword']}</strong>. Below are the details of the recent trends.
@@ -122,7 +117,7 @@ def main():
                 </div>
                 <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
                     <thead>
-                        <tr style="background-color: #007BFF; color: #fff; text-align: left;">
+                        <tr style="background-color: #a3333e; color: #fff; text-align: left;">
                             <th style="padding: 10px; border: 1px solid #ddd;">Keyword</th>
                             <th style="padding: 10px; border: 1px solid #ddd;">Trend</th>
                             <th style="padding: 10px; border: 1px solid #ddd;">Change</th>
@@ -138,7 +133,7 @@ def main():
                 </table>
                 <div style="text-align: center; margin: 20px;">
                     <a href="https://yourdashboardlink.com" style="
-                        background-color: #007BFF; 
+                        background-color: #a3333e; 
                         color: white; 
                         padding: 10px 20px; 
                         text-decoration: none; 
@@ -147,7 +142,7 @@ def main():
                 </div>
                 <div style="border-top: 1px solid #ddd; margin-top: 20px; padding-top: 10px; font-size: 12px; color: #777; text-align: center;">
                     <p>You are receiving this email as a subscriber of Trend Getter. If you no longer wish to receive updates, 
-                    <a href="https://unsubscribe-link.com" style="color: #007BFF;">unsubscribe here</a>.</p>
+                    <a href="https://unsubscribe-link.com" style="color: #a3333e;">unsubscribe here</a>.</p>
                     <p>&copy; 2024 Trend Getter Inc. All rights reserved.</p>
                 </div>
             </div>
@@ -162,4 +157,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    lambda_handler(None, None)
