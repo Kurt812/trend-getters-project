@@ -1,24 +1,37 @@
 """Script to load data into RDS"""
 
+import datetime
 from os import environ as ENV
+import logging
 import pandas as pd
+from datetime import datetime
 import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import connection as connect, cursor as curs
 from dotenv import load_dotenv
 
 
-def setup_connection():
+def setup_connection() -> tuple:
     """Retrieve database connection and cursor"""
-    conn = psycopg2.connect(
-        user=ENV["DB_USERNAME"],
-        password=ENV["DB_PASSWORD"],
-        host=ENV["DB_HOST"],
-        port=ENV["DB_PORT"],
-        database=ENV["DB_NAME"]
-    )
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cursor.execute(f"SET SEARCH_PATH TO {ENV['SCHEMA_NAME']};")
+    try:
+        conn = psycopg2.connect(
+            user=ENV["DB_USERNAME"],
+            password=ENV["DB_PASSWORD"],
+            host=ENV["DB_HOST"],
+            port=ENV["DB_PORT"],
+            database=ENV["DB_NAME"]
+        )
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(f"SET SEARCH_PATH TO {ENV['SCHEMA_NAME']};")
+    except psycopg2.OperationalError as e:
+        logging.error(
+            "Operational error while connecting to the database: %s", e)
+        raise
+    except Exception as e:
+        logging.error("Error connecting to database: %s", e)
+        raise
+    logging.info("Connection successfully established to database.")
+
     return conn, cursor
 
 
@@ -31,8 +44,8 @@ def insert_keywords(conn: connect, cursor: curs,
         existing_id = cursor.fetchone()
 
         if existing_id is None:
-            cursor.execute("""INSERT INTO keywords (keyword)
-                            VALUES (%s)""", (keyword,))
+            cursor.execute(
+                """INSERT INTO keywords (keyword) VALUES (%s)""", (keyword,))
             conn.commit()
 
 
@@ -41,14 +54,14 @@ def insert_keyword_recordings(conn: connect,
     """Inserts data into the keyword_recordings table"""
 
     for row in dataframe.to_dict(orient='records'):
-        hour = row['Hour']
-        total_mentions = row['Count']
+        date_and_hour = datetime.strptime(row['Date and Hour'], "%Y-%m-%d %H")
+        total_mentions = row['Total Mentions']
         average_sentiment = row['Average Sentiment']
         keyword_id = row['keyword_id']
         cursor.execute("""INSERT INTO keyword_recordings
-                       (keywords_id, total_mentions, avg_sentiment, hour_of_day)
+                       (keywords_id, total_mentions, avg_sentiment, date_and_hour)
                        VALUES (%s, %s, %s, %s)""",
-                       (keyword_id, total_mentions, average_sentiment, hour))
+                       (keyword_id, total_mentions, average_sentiment, date_and_hour))
         conn.commit()
 
 
@@ -84,8 +97,14 @@ def insert_related_terms(conn: connect, cursor: curs, extracted_dataframe: pd.Da
 
 def get_keyword_id(cursor: curs, keyword: str) -> int:
     """Returns the keyword id for a given keyword"""
-    cursor.execute("""SELECT keywords.keywords_id FROM keywords WHERE keyword = %s""", (keyword, ))
-    return cursor.fetchone()['keywords_id']
+
+    cursor.execute(
+        """SELECT keywords.keywords_id FROM keywords WHERE keyword = %s""", (keyword, ))
+    result = cursor.fetchone()
+    if result is None:
+        logging.error("Keyword '%s' not found in the database.", keyword)
+        raise ValueError(f"Keyword '{keyword}' not found.")
+    return result['keywords_id']
 
 
 def insert_related_term_assignment(conn: connect, cursor: curs, keyword_and_ids: dict) -> None:
@@ -102,9 +121,9 @@ def main(topic: list[str], extracted_dataframe: pd.DataFrame) -> None:
     conn, cursor = setup_connection()
     load_dotenv()
     insert_keywords(conn, cursor, topic)
-    insert_keyword_recordings(conn,cursor, extracted_dataframe)
-    related_term_ids = insert_related_terms(conn,cursor, extracted_dataframe)
-    insert_related_term_assignment(conn,cursor,related_term_ids)
+    insert_keyword_recordings(conn, cursor, extracted_dataframe)
+    related_term_ids = insert_related_terms(conn, cursor, extracted_dataframe)
+    insert_related_term_assignment(conn, cursor, related_term_ids)
 
 
 if __name__ == "__main__":

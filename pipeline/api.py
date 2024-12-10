@@ -1,9 +1,7 @@
 """Api.py: script setting up api to post new topics to."""
 
-import re
 from flask import Flask, request, jsonify
 from etl import main
-from dotenv import load_dotenv
 
 app = Flask(__name__)
 

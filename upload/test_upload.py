@@ -7,7 +7,7 @@ import os
 from freezegun import freeze_time
 from unittest.mock import MagicMock, patch, ANY
 from atproto import models
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from upload import (s3_connection, format_text, extract_text_from_bytes,
                     get_firehose_data, start_firehose_extraction, connect_and_upload,
                     upload_to_s3)
@@ -48,12 +48,15 @@ def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
 
 @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
 @patch('upload.client')
-def test_s3_connection_raises_nocredentialserror(mock_client, caplog):
-    """Test that s3 connection function can and will raise the NoCredentialsError."""
-    mock_client.side_effect = NoCredentialsError()
-    with pytest.raises(NoCredentialsError):
+def test_s3_connection_raises_client_serror(mock_client, caplog):
+    """Test that s3 connection function, if encountering issues like authentication failure, invalid credentials, or incorrect parameters will raise an error."""
+    mock_client.side_effect = ClientError(
+        error_response={'Error': {'Code': 'AuthFailure', 'Message': 'Authentication failure'}},
+        operation_name='connect'
+    )
+    with pytest.raises(ClientError):
         s3_connection()
-    assert 'A BotoCore error occurred: Unable to locate credentials' in caplog.text
+    assert 'An AWS ClientError occurred:' in caplog.text
 
     mock_client.assert_called_once_with(
         's3', 'fake_access_key', 'fake_secret_key')
@@ -61,17 +64,28 @@ def test_s3_connection_raises_nocredentialserror(mock_client, caplog):
 
 @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
 @patch('upload.client')
-def test_s3_connection_raises_partialcredentialserror(mock_client, caplog):
-    """Test that s3 connection function can and will raise the PartialCredentialsError."""
-    mock_client.side_effect = PartialCredentialsError(
-        # i.e. cannot locate the secret access key
-        provider='aws', cred_var='AWS_SECRET_ACCESS_KEY')
-    with pytest.raises(PartialCredentialsError):
+def test_s3_connection_raises_value_error(mock_client, caplog):
+    """Test that s3 connection function can and will raise the Value Error if the credentials are missing or incomplete."""
+    mock_client.side_effect = ValueError()
+    with pytest.raises(ValueError):
         s3_connection()
-    assert 'A BotoCore error occurred: Partial credentials found in aws' in caplog.text
+    assert 'Configuration error:' in caplog.text
 
     mock_client.assert_called_once_with(
         's3', 'fake_access_key', 'fake_secret_key')
+
+@patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
+@patch('upload.client')
+def test_s3_connection_raises_exception(mock_client, caplog):
+    """Test that s3 connection function will raise an exception against unforeseen errors."""
+    mock_client.side_effect = Exception()
+    with pytest.raises(Exception):
+        s3_connection()
+    assert 'An unexpected error occurred while connecting to S3: ' in caplog.text
+
+    mock_client.assert_called_once_with(
+        's3', 'fake_access_key', 'fake_secret_key')
+
 
 
 def test_correct_formatting():
@@ -244,14 +258,15 @@ def test_start_firehose_extraction_success(mock_firehose_client, mock_get_data):
 
 
 @freeze_time("2000-12-03 16:11:16")
+@patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key', 'S3_BUCKET_NAME': 'bucket'})
 @patch('upload.s3_connection')
 def test_successful_upload_to_s3(mock_s3, caplog):
     """Test content is uploaded to suitable bucket & object prefix."""
     mock_s3_instance = MagicMock()
     mock_s3.return_value = mock_s3_instance
 
-    mock_s3_key = 'None2000-12-03/16/20001203161116000000.txt'
-    mock_bucket = None
+    mock_s3_key = 'bluesky/2000-12-03/16/20001203161116000000.txt'
+    mock_bucket = 'bucket'
     mock_body = 'hello'
     mock_s3_instance.put_object.return_value = None
     with caplog.at_level(logging.INFO):
@@ -265,16 +280,16 @@ def test_successful_upload_to_s3(mock_s3, caplog):
 
 @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
 @patch('upload.s3_connection')
-def test_unsuccessful_upload_s3_nocred_error(mock_s3_connection, caplog):
-    """Test that upload to s3 will log error if missing AWS credentials."""
+def test_unsuccessful_upload_s3_endpoint_connection_error(mock_s3_connection, caplog):
+    """Test that upload to s3 will raise an error if there are network configuration issues."""
     mock_s3_instance = MagicMock()
     mock_s3_connection.return_value = mock_s3_instance
 
-    mock_s3_connection.side_effect = NoCredentialsError()
+    mock_s3_connection.side_effect = EndpointConnectionError(endpoint_url='fake_url')
     mock_body = 'hello'
-    with pytest.raises(NoCredentialsError):
+    with pytest.raises(EndpointConnectionError):
         upload_to_s3(mock_body)
-    assert 'S3 credentials error: Unable to locate credentials' in caplog.text
+    assert 'Failed to connect to the S3 endpoint:' in caplog.text
 
     mock_s3_connection.assert_called_once()
     mock_s3_instance.put_object.assert_not_called()
@@ -282,17 +297,35 @@ def test_unsuccessful_upload_s3_nocred_error(mock_s3_connection, caplog):
 
 @patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
 @patch('upload.s3_connection')
-def test_unsuccessful_upload_s3_partial_error(mock_s3_connection, caplog):
-    """Test that upload to s3 will log partialcredentialerror if missing AWS credentials."""
+def test_unsuccessful_upload_s3_exception(mock_s3_connection, caplog):
+    """Test that upload to s3 will raise errors against unforeseen errors."""
     mock_s3_instance = MagicMock()
     mock_s3_connection.return_value = mock_s3_instance
 
-    mock_s3_connection.side_effect = PartialCredentialsError(
-        provider='aws', cred_var='AWS_SECRET_ACCESS_KEY')
+    mock_s3_connection.side_effect = Exception()
     mock_body = 'hello'
-    with pytest.raises(PartialCredentialsError):
+    with pytest.raises(Exception):
         upload_to_s3(mock_body)
-    assert ' Partial credentials found in aws, missing: AWS_SECRET_ACCESS_KEY' in caplog.text
+    assert 'An unexpected error occurred while uploading to S3:' in caplog.text
+
+    mock_s3_connection.assert_called_once()
+    mock_s3_instance.put_object.assert_not_called()
+
+@patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'fake_access_key', 'AWS_SECRET_ACCESS_KEY': 'fake_secret_key'})
+@patch('upload.s3_connection')
+def test_unsuccessful_upload_s3_client_error(mock_s3_connection, caplog):
+    """Test that upload to s3 will raise an error when catching AWS authentication failures and related permission issues."""
+
+    mock_s3_instance = MagicMock()
+    mock_s3_connection.return_value = mock_s3_instance
+
+    mock_s3_connection.side_effect = ClientError(
+        error_response={'Error': {'Code': 'AuthFailure', 'Message': 'Authentication failure'}},
+        operation_name='connect')
+    mock_body = 'hello'
+    with pytest.raises(ClientError):
+        upload_to_s3(mock_body)
+    assert 'An AWS ClientError occurred:' in caplog.text
 
     mock_s3_connection.assert_called_once()
     mock_s3_instance.put_object.assert_not_called()

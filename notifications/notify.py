@@ -4,7 +4,10 @@ import boto3
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
+import base64
 
+with open("logo.png", "rb") as image_file:
+    base64_image = base64.b64encode(image_file.read()).decode("utf-8")
 
 def setup_connection():
     """Retrieve database connection and cursor"""
@@ -27,7 +30,7 @@ def fetch_keyword_differences(cursor):
     WITH recent_mentions AS (
         SELECT 
             kr.keywords_id,
-            ARRAY_AGG(kr.total_mentions ORDER BY kr.hour_of_day DESC) AS mentions
+            ARRAY_AGG(kr.total_mentions ORDER BY kr.date_and_hour DESC) AS mentions
         FROM keyword_recordings kr
         GROUP BY kr.keywords_id
     ),
@@ -77,9 +80,13 @@ def send_email(email, message):
         },
         Message={
             "Body": {
-                "Text": {
+                "Html": {
                     "Charset": CHARSET,
                     "Data": message,
+                },
+                "Text": {
+                    "Charset": CHARSET,
+                    "Data": "There's been an update in your subscription trends. Check the dashboard for details.",
                 }
             },
             "Subject": {
@@ -89,6 +96,7 @@ def send_email(email, message):
         },
         Source="trainee.ridwan.hamid@sigmalabs.co.uk",
     )
+    print(response)
 
 
 def main():
@@ -98,13 +106,56 @@ def main():
     notifications = fetch_keyword_differences(cursor)
 
     for notification in notifications:
-        message = (
-            f"""Hi {notification['first_name']}, there's been a spike in your subscription for {
-                notification['keyword']}. It has {notification['direction']} by {
-                abs(notification['difference'])} mentions in the last hour. Check the dashboard for more details."""
-        )
+        message = f"""
+        <html>
+        <head>
+        <body style="background-color: #f4f4f4; padding: 20px;">
+            <div style="background-color: white; max-width: 600px; margin: auto; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+                <div class="header">
+                    <h2 style="color: #333;">Hello {notification['first_name']}!</h2>
+                </div>
+                <div style="background-color: #eef; padding: 15px; border-left: 4px solid #007BFF; margin-bottom: 20px;">
+                    <p>
+                        You are receiving this email because there has been significant activity in your subscription for 
+                        <strong>{notification['keyword']}</strong>. Below are the details of the recent trends.
+                    </p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <thead>
+                        <tr style="background-color: #007BFF; color: #fff; text-align: left;">
+                            <th style="padding: 10px; border: 1px solid #ddd;">Keyword</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Trend</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 10px; border: 1px solid #ddd;">{notification['keyword']}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">{notification['direction']}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">{abs(notification['difference'])} mentions</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="text-align: center; margin: 20px;">
+                    <a href="https://yourdashboardlink.com" style="
+                        background-color: #007BFF; 
+                        color: white; 
+                        padding: 10px 20px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        font-weight: bold;">View Your Dashboard</a>
+                </div>
+                <div style="border-top: 1px solid #ddd; margin-top: 20px; padding-top: 10px; font-size: 12px; color: #777; text-align: center;">
+                    <p>You are receiving this email as a subscriber of Trend Getter. If you no longer wish to receive updates, 
+                    <a href="https://unsubscribe-link.com" style="color: #007BFF;">unsubscribe here</a>.</p>
+                    <p>&copy; 2024 Trend Getter Inc. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
         send_email(notification['email'], message)
-        print(message)
+        # print(message)
 
     cursor.close()
     conn.close()

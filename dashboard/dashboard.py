@@ -6,59 +6,60 @@ import streamlit as st
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import threading
+from email_validator import validate_email, EmailNotValidError
 
 load_dotenv()
 
 API_ENDPOINT = ENV["API_ENDPOINT"]
 
 
-def get_connection() -> psycopg2.extensions.connection:
+def get_connection() -> tuple:
     """Establish and return a database connection"""
-    return psycopg2.connect(
+    conn = psycopg2.connect(
         user=ENV["DB_USERNAME"],
         password=ENV["DB_PASSWORD"],
         host=ENV["DB_HOST"],
         port=ENV["DB_PORT"],
         database=ENV["DB_NAME"]
     )
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SET SEARCH_PATH TO %s;",
+                   (ENV["SCHEMA_NAME"],))
+    return conn, cursor
 
 
-def fetch_user_keywords(user_id):
-    query = """SELECT k.keyword 
+def fetch_user_keywords(user_id: int) -> list[str]:
+    """Fetch a user's existing keywords"""
+    query = """SELECT k.keyword
                FROM subscription s
                JOIN keywords k ON s.keywords_id = k.keywords_id
                WHERE s.user_id = %s;"""
 
-    conn = get_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SET SEARCH_PATH TO %s;",
-                   (ENV["SCHEMA_NAME"],))
+    _, cursor = get_connection()
     cursor.execute(query, (user_id,))
     results = cursor.fetchall()
     return [result["keyword"] for result in results]
 
 
-def fetch_keyword_id(keyword) -> list:
-    """Fetch available keywords from the database."""
-    query = "SELECT * FROM keywords WHERE keyword = %s;"
+def fetch_keyword_id(keyword: str) -> list:
+    """Fetch available keywords from the database"""
+    query = "SELECT keywords_id FROM keywords WHERE keyword = %s;"
     result = execute_query(query, (keyword,), fetch_one=True)
     return result
 
 
-def subscribe_to_keyword(user_id, keywords_id, subscription_status, notification_threshold) -> None:
-    """Subscribe a user to a keyword with a given threshold, inserting if not exists and updating if exists."""
-    # Step 1: Check if the subscription already exists
+def subscribe_to_keyword(user_id: int, keywords_id: int, subscription_status: bool,
+                          notification_threshold: int) -> None:
+    """Subscribe a user to a keyword with a given threshold, 
+    inserting if not exists and updating if exists"""
     check_query = """
-        SELECT 1 
-        FROM subscription 
+        SELECT 1
+        FROM subscription
         WHERE user_id = %s AND keywords_id = %s;
     """
-    result = execute_query(check_query, (user_id, keywords_id),
-                           True)  # Assumes fetch_query returns a result list
+    result = execute_query(check_query, (user_id, keywords_id), True)
 
-    if result:  # Record exists
-        # Step 2: Update the existing record
+    if result:
         update_query = """
             UPDATE subscription
             SET subscription_status = %s, notification_threshold = %s
@@ -66,8 +67,7 @@ def subscribe_to_keyword(user_id, keywords_id, subscription_status, notification
         """
         execute_query(update_query, (subscription_status,
                       notification_threshold, user_id, keywords_id))
-    else:  # Record does not exist
-        # Step 3: Insert a new record
+    else:
         insert_query = """
             INSERT INTO subscription (user_id, keywords_id, subscription_status, notification_threshold)
             VALUES (%s, %s, %s, %s);
@@ -76,13 +76,10 @@ def subscribe_to_keyword(user_id, keywords_id, subscription_status, notification
                       subscription_status, notification_threshold))
 
 
-def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
+def execute_query(query: str, params: tuple = None, fetch_one: bool = False) -> dict:
     """Execute a query and return results if applicable"""
     try:
-        conn = get_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SET SEARCH_PATH TO %s;",
-                       (ENV["SCHEMA_NAME"],))
+        conn, cursor = get_connection()
         cursor.execute(query, params)
         if fetch_one:
             return cursor.fetchone()
@@ -94,201 +91,226 @@ def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
         return None
 
 
-def is_valid_uk_phone_number(phone_number: str) -> bool:
-    """Check if the given phone number is a valid UK mobile number starting with +447"""
-    pattern = r'^\+447\d{9}$'
-    return bool(re.match(pattern, phone_number))
+def is_valid_email(email: str) -> bool:
+    """Check if entered email is valid"""
+    try:
+        validate_email(email)
+        return True
+    except EmailNotValidError:
+        return False
 
 
-def check_phone_number(phone_number: str) -> bool:
-    """Check if the phone number exists in the database"""
-    query = "SELECT * FROM \"user\" WHERE phone_number = %s;"
-    result = execute_query(query, (phone_number,), fetch_one=True)
+
+def check_email_exists(email: str) -> bool:
+    """Check if the email exists in the database"""
+    query = "SELECT * FROM \"user\" WHERE email = %s;"
+    result = execute_query(query, (email,), fetch_one=True)
     return result is not None
 
 
-def check_user(phone_number: str, first_name: str, last_name: str) -> bool:
-    """Check if the user exists in the database and verify their name."""
+def check_user(email: str, first_name: str, last_name: str) -> bool:
+    """Check if the user exists in the database and verify their name"""
     query = """SELECT user_id FROM "user"
-               WHERE phone_number = %s 
-               AND first_name = %s 
+               WHERE email = %s
+               AND first_name = %s
                AND last_name = %s;"""
     result = execute_query(
-        query, (phone_number, first_name, last_name), fetch_one=True)
+        query, (email, first_name, last_name), fetch_one=True)
     return result
 
 
-def insert_user(first_name: str, last_name: str, phone_number: str) -> None:
+def insert_user(first_name: str, last_name: str, email: str) -> None:
     """Insert a new user into the database"""
-    query = """INSERT INTO "user" (first_name, last_name, phone_number)
+    query = """INSERT INTO "user" (first_name, last_name, email)
                VALUES (%s, %s, %s);"""
-    execute_query(query, (first_name, last_name, phone_number))
-
-
-def submit_topic_in_background(data: dict) -> None:
-    """Run the submit_topic function in a background thread."""
-    thread = threading.Thread(target=submit_topic, args=(data,))
-    thread.start()
-
-
-def insert_keyword(keyword: str) -> None:
-    """Insert a new user into the database"""
-    query = """INSERT INTO keywords (keyword)
-               VALUES (%s);"""
-    execute_query(query, (keyword,))
+    execute_query(query, (first_name, last_name, email))
 
 
 def submit_topic(data: dict) -> None:
-    """Submit topic details to the API in a thread-safe manner."""
+    """Submit topic details to the API"""
     try:
-        print("trying")
         response = requests.post(API_ENDPOINT, json=data, timeout=1000)
-        # Store the result in session_state for the UI to update
         if response.status_code == 200:
-            # print(st.session_state["submit_status"])
-            st.session_state["submit_status"] = "success"
-            # insert_keyword(data["topic_name"])
-            # print(st.session_state["submit_status"])
             st.success("✅ Topic submitted successfully!")
-            st.rerun()
         else:
-            st.session_state["submit_status"] = f"Error: {
-                response.json().get('message', 'Unknown error')}"
+            st.error(f"""Error: {response.json().get(
+                'message', 'Unknown error')}""")
     except requests.exceptions.RequestException as e:
-        st.session_state["submit_status"] = f"Failed to connect to the API. Error: {
-            e}"
-    print("tried")
+        st.error(f"Failed to connect to the API. Error: {e}")
 
 
-def user_verification() -> None:
-    """UI for verifying the user's phone number"""
+def display_user_form() -> tuple:
+    """Displays the user input form and handles submission"""
     with st.form("user_form", clear_on_submit=True):
-        st.markdown('<div class="form-header">Enter Your Details</div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="form-header">Enter Your Details</div>', unsafe_allow_html=True)
         user_first = st.text_input("First Name", help="Enter your first name")
         user_last = st.text_input("Last Name", help="Enter your last name")
-        phone_number = st.text_input(
-            "Phone Number", help="Enter a valid phone number")
+        email = st.text_input(
+            "Email", help="Enter a valid email")
         submit_user_button = st.form_submit_button("Submit")
+    return user_first.strip(), user_last.strip(), email.strip(), submit_user_button
 
-    if submit_user_button:
-        if user_first.strip() and user_last.strip() and phone_number.strip():
-            phone_number = phone_number.strip()
-            user_first = user_first.strip()
-            user_last = user_last.strip()
 
-            st.session_state.update({
-                "user_verified": True,
-                "phone_number": phone_number,
-                "user_first": user_first,
-                "user_last": user_last,
-                "is_new_user": False
-            })
-            if check_phone_number(phone_number.strip()):
-                user_id = check_user(phone_number, user_first, user_last)
-                if user_id is not None:
-                    st.session_state["user_id"] = user_id
-                    st.success("Phone number and name verified!")
-                else:
-                    st.session_state["verification_error"] = (
-                        "The phone number exists, but the name does not match. Please try again."
-                    )
-                    st.session_state["user_verified"] = False
-            else:
-                if not is_valid_uk_phone_number(phone_number):
-                    st.session_state["user_verified"] = False
-                    st.session_state["verification_error"] = (
-                        "Please enter a valid UK phone number (e.g., starting with +447 and 9 digits after that)."
-                    )
-                else:
-                    insert_user(user_first, user_last, phone_number)
-                    user_id = check_user(phone_number, user_first, user_last)
-                    st.session_state["user_id"] = user_id
-                    print("USERID", user_id)
-                    st.session_state["is_new_user"] = True
-                    st.success(
-                        "Phone number not found. Registering to database.")
-            st.rerun()
+def process_user(user_first: str, user_last: str, email: str) -> None:
+    """Processes the user's verification or registration"""
+    if not user_first or not user_last or not email:
+        st.session_state["verification_warning"] = "Please enter both your name and email."
+        st.session_state["user_verified"] = False
+        return
+
+    st.session_state.update({
+        "user_verified": True,
+        "email": email,
+        "user_first": user_first,
+        "user_last": user_last,
+        "is_new_user": False,
+        "verification_warning": None
+    })
+
+    if check_email_exists(email):
+        user_id = check_user(email, user_first, user_last)
+        if user_id:
+            st.session_state["user_id"] = user_id
+            st.success("Email and name verified!")
         else:
-            st.warning("Please enter both your name and phone number.")
+            st.session_state.update({
+                "user_verified": False,
+                "verification_error": """The email exists, but the name does not match. 
+                Please try again."""
+            })
+    else:
+        handle_new_user_registration(user_first, user_last, email)
 
-    if "verification_error" in st.session_state and st.session_state["verification_error"]:
+
+def handle_new_user_registration(user_first: str, user_last: str, email: str) -> None:
+    """Registers a new user if the email does not exist"""
+    if not is_valid_email(email):
+        st.session_state.update({
+            "user_verified": False,
+            "verification_error": "Please enter a valid email."
+        })
+        return
+
+    insert_user(user_first, user_last, email)
+    user_id = check_user(email, user_first, user_last)
+    st.session_state.update({
+        "user_id": user_id,
+        "is_new_user": True
+    })
+    st.success("Email not found. Registering to database.")
+
+
+def display_errors() -> None:
+    """Displays verification errors and warnings stored in session state"""
+    if st.session_state.get("verification_warning"):
+        st.warning(st.session_state["verification_warning"])
+    if st.session_state.get("verification_error"):
         st.error(st.session_state["verification_error"])
 
 
-def topic_and_subscription_ui() -> None:
-    """UI for topic entry and keyword subscription."""
+def user_verification() -> None:
+    """Main function for verifying the user's email"""
+    user_first, user_last, email, submit_user_button = display_user_form()
+
+    if submit_user_button:
+        process_user(user_first, user_last, email)
+        st.rerun()
+
+    display_errors()
+
+
+def display_welcome_message() -> None:
+    """Displays a welcome message based on user session state"""
     if not st.session_state.get("is_new_user", False):
         st.write(f"Welcome back, {st.session_state['user_first']}!")
     else:
         st.write(f"Greetings, {st.session_state['user_first']}!")
 
-    with st.sidebar:
-        st.header("Topic Management")
-        st.subheader("Enter New Topic")
-        with st.form("topic_form"):
-            new_topic = st.text_input("Enter the topic or keyword:")
-            print('q', new_topic, 'q')
-            submit_topic_button = st.form_submit_button("Add Topic")
 
+def topic_entry_form() -> str:
+    """Displays the form for entering a new topic"""
+    st.subheader("Enter New Topic")
+    with st.form("topic_form"):
+        new_topic = st.text_input("Enter the topic or keyword:")
+        submit_topic_button = st.form_submit_button("Add Topic")
         if submit_topic_button:
             if new_topic.strip():
                 topic_data = {"topic_name": new_topic.strip()}
-                if fetch_keyword_id(new_topic) is None:
-                    submit_topic_in_background(topic_data)
-
-                else:
-                    st.success("✅ Topic found!")
-                st.session_state["submit_status"] = "flop"
+                submit_topic(topic_data)
             else:
                 st.warning("Please enter a valid topic.")
-            print("MAMA")
-            # print("THIS ONE HERE", st.session_state["submit_status"])
-            print("BABA")
-            if "submit_status" in st.session_state:
-                if st.session_state["submit_status"] == "success":
-                    st.success("✅ Topic submitted successfully!")
-                else:
-                    st.info("Submitting topic in the background...")
-                # Clear the status after displaying it
-                del st.session_state["submit_status"]
+    return new_topic.strip()
 
-        # Keyword Subscription
-        st.subheader("Subscribe to Keywords")
-        existing_keywords = fetch_user_keywords(
-            st.session_state["user_id"]["user_id"])
-        if new_topic.strip() != '' and new_topic.strip() not in existing_keywords:
-            existing_keywords.append(new_topic.strip())
 
-        if existing_keywords:
-            with st.form("subscription_form"):
-                selected_keyword = st.selectbox(
-                    "Choose a keyword to subscribe:", existing_keywords)
-                subscription_status = st.selectbox(
-                    "Subscription Status:", ["disabled", "enabled"]
-                ) == "enabled"
-                subscription_threshold = st.number_input(
-                    "Set notification threshold:", min_value=0, value=0
-                )
-                subscribe_button = st.form_submit_button("Subscribe")
+def display_keywords(existing_keywords: list, new_topic: str) -> list:
+    """Displays existing keywords and appends the new topic if valid"""
+    if new_topic and new_topic not in existing_keywords:
+        existing_keywords.append(new_topic)
+    return existing_keywords
 
+
+def subscription_form(existing_keywords: list) -> None:
+    """Displays the form for subscribing to keywords"""
+    st.subheader("Subscribe to Keywords")
+
+    if existing_keywords:
+        with st.form("subscription_form"):
+            selected_keyword = st.selectbox(
+                "Choose a keyword to subscribe:", existing_keywords
+            )
+            subscription_status = st.selectbox(
+                "Subscription Status:", ["disabled", "enabled"]
+            ) == "enabled"
+            subscription_threshold = st.number_input(
+                "Set notification threshold:", min_value=0, value=0
+            )
+            subscribe_button = st.form_submit_button("Subscribe")
             if subscribe_button:
-                keyword_id = fetch_keyword_id(selected_keyword)["keywords_id"]
-                print(st.session_state["user_id"]["user_id"])
-                print(keyword_id)
-                print(subscription_threshold)
-                if not subscription_status:
-                    subscription_threshold = None
-                if selected_keyword.strip():
-                    subscribe_to_keyword(
-                        st.session_state["user_id"]["user_id"], keyword_id, subscription_status, subscription_threshold
-                    )
-                    st.success(f"Subscribed to '{selected_keyword}' with a threshold of {
-                               subscription_threshold}!")
-                else:
-                    st.warning("Please select a valid keyword.")
+                process_subscription(
+                    selected_keyword, subscription_status, subscription_threshold
+                )
+    else:
+        st.info("No keywords available. Add a topic to create keywords.")
+
+
+def process_subscription(selected_keyword: str, subscription_status: bool,
+                         subscription_threshold: int) -> None:
+    """Processes the subscription to a selected keyword"""
+    keyword_id = fetch_keyword_id(selected_keyword)["keywords_id"]
+    if not subscription_status:
+        subscription_threshold = None
+    if selected_keyword.strip():
+        if selected_keyword and subscription_status:
+            subscribe_to_keyword(
+                st.session_state["user_id"]["user_id"],
+                keyword_id,
+                subscription_status,
+                subscription_threshold
+            )
+            st.success(
+                f"""You will be notified if the mentions count over the last hour
+                for '{selected_keyword}' has risen or fallen by {subscription_threshold}."""
+            )
         else:
-            st.info("No keywords available. Add a topic to create keywords.")
+            st.success(f"""You have added {selected_keyword} to your list of topics.
+                       You will *not* receive notifications""")
+    else:
+        st.warning("Please select a valid keyword.")
+
+
+def topic_and_subscription_ui() -> None:
+    """Main UI function for topic entry and keyword subscription"""
+    display_welcome_message()
+
+    with st.sidebar:
+        st.header("Topic Management")
+        new_topic = topic_entry_form()
+        existing_keywords = fetch_user_keywords(
+            st.session_state["user_id"]["user_id"]
+        )
+        existing_keywords = display_keywords(existing_keywords, new_topic)
+        subscription_form(existing_keywords)
 
 
 def display_center_message() -> None:
@@ -311,7 +333,7 @@ def display_center_message() -> None:
 
 
 def main() -> None:
-    """Main function to render the Streamlit app."""
+    """Main function to render the Streamlit app"""
     st.title("Trend Getter Dashboard")
 
     if "user_verified" not in st.session_state:
