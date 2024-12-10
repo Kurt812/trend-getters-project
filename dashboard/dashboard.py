@@ -12,6 +12,7 @@ from email_validator import validate_email, EmailNotValidError
 from queries import (get_mentions_avg_sentiment_for_keyword, get_overall_change_in_sentiment_mentions, get_related_words_stats)
 load_dotenv()
 
+from combined_data import 
 API_ENDPOINT = ENV["API_ENDPOINT"]
 
 
