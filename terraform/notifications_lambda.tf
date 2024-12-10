@@ -32,6 +32,14 @@ resource "aws_iam_role_policy" "notifications_lambda_policy" {
         Resource = "*"
       },
       {
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": "*"
+      },
+      {
         Effect   = "Allow",
         Action   = [
           "rds:Connect"
@@ -54,7 +62,7 @@ resource "aws_lambda_function" "notifications_lambda" {
 
   package_type  = "Image"
   architectures = ["x86_64"]
-  image_uri = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-rds-to-s3-ecr@sha256:80ce6b0839817fc7abcabc740003ce68ecf934b9bca2dcdcb9e229376804308e" # change
+  image_uri = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-notifications-ecr@sha256:0d6369aff651753db6d59ca4cef22dc40fddccd70c301ccd1989ea21946c4d1b" # change
 
   timeout       = 720
   depends_on    = [aws_cloudwatch_log_group.notifications_lambda_log_group]
@@ -83,27 +91,26 @@ resource "aws_lambda_function" "notifications_lambda" {
 
 }
 
-# EventBridge Rule for Schedule Every 5 Minutes
+# EventBridge Rule for Hourly Schedule
 resource "aws_cloudwatch_event_rule" "notifications_schedule_rule" {
-  name                = "notifications_lambda_schedule_5min"
-  description         = "Runs the notifications Lambda every 5 minutes for testing"
-  schedule_expression = "rate(5 minutes)"  # Every 5 minutes
+  name                = "notifications_lambda_schedule_hourly"
+  description         = "Runs the notifications Lambda every hour"
+  schedule_expression = "rate(1 hour)"  # Every hour
 }
 
 # Lambda Permission for EventBridge Rule
 resource "aws_lambda_permission" "notifications_allow_eventbridge" {
-  statement_id  = "AllowExecutionFromEventBridge"
+  statement_id  = "AllowExecutionFromEventBridgeHourly"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.notifications_lambda.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.schedule_rule.arn
+  source_arn    = aws_cloudwatch_event_rule.notifications_schedule_rule.arn
 }
 
 # EventBridge Target for Lambda
 resource "aws_cloudwatch_event_target" "notifications_lambda_target" {
-  rule      = aws_cloudwatch_event_rule.schedule_rule.name
-  target_id = "etl-lambda-5min-target"
+  rule      = aws_cloudwatch_event_rule.notifications_schedule_rule.name
+  target_id = "notifications-lambda-hourly-target"
   arn       = aws_lambda_function.notifications_lambda.arn
 }
-
-# ----- change all names to match notifications_lambda
+git

@@ -96,7 +96,7 @@ resource "aws_lambda_function" "rds_to_s3_etl_lambda" {
 
 # EventBridge Rule for Daily Schedule at 6 PM
 resource "aws_cloudwatch_event_rule" "schedule_rule" {
-  name                = "etl_lambda_daily_schedule"
+  name                = "c14-trendgineers-etl-lambda-daily-schedule"
   description         = "Runs the ETL Lambda every day at 6 PM"
   schedule_expression = "cron(0 18 * * ? *)"  # Cron for 6:00 PM UTC daily
 }
