@@ -47,12 +47,12 @@ def mock_df():
 
 @pytest.fixture()
 def mock_df_2():
-    return pd.DataFrame({
-        'Date and Hour': ['2024-12-10 10'],
-        'Total Mentions': [15],
-        'Average Sentiment': [0.75],
-        'keyword_id': [1]
-    })
+    return pd.DataFrame([{
+        'Date and Hour': '2024-12-10 10',
+        'Total Mentions': 18,
+        'Average Sentiment': 0.8,
+        'keyword_id': 3
+    }])
 
 
 @patch('load.psycopg2.connect')
@@ -138,26 +138,15 @@ def test_keyword_already_exists_no_insert(mock_setup):
 
 
 @patch('load.setup_connection')
-def test_insert_keyword_recordings_success(mock_setup):
+def test_insert_keyword_recordings_success(mock_setup, mock_df_2):
     """Test successful insertion of data into keyword_recordings_table."""
 
-    # Mock connection and cursor
     mock_conn = MagicMock()
     mock_curs = MagicMock()
     mock_setup.return_value = (mock_conn, mock_curs)
 
-    # Create a mock DataFrame
-    mock_df_2 = pd.DataFrame([{
-        'Date and Hour': '2024-12-10 10',
-        'Total Mentions': 18,
-        'Average Sentiment': 0.8,
-        'keyword_id': 3
-    }])
-
-    # Call the function
     insert_keyword_recordings(mock_conn, mock_curs, mock_df_2)
 
-    # Assert the SQL query was called with the correct parameters
     mock_curs.execute.assert_any_call(
         """INSERT INTO keyword_recordings
                        (keywords_id, total_mentions, avg_sentiment, date_and_hour)
@@ -165,7 +154,6 @@ def test_insert_keyword_recordings_success(mock_setup):
         (3, 18, 0.8, datetime.datetime(2024, 12, 10, 10, 0))
     )
 
-    # Assert commit was called once for the single record
     assert mock_conn.commit.call_count == 1
 
 
