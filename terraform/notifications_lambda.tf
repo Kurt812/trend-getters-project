@@ -113,4 +113,3 @@ resource "aws_cloudwatch_event_target" "notifications_lambda_target" {
   target_id = "notifications-lambda-hourly-target"
   arn       = aws_lambda_function.notifications_lambda.arn
 }
-git
