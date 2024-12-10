@@ -2,4 +2,7 @@ python-dotenv
 psycopg2
 psycopg2-binary
 streamlit
+scikit-learn
 email_validator
+pandas
+numpy
