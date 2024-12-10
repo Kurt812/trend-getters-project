@@ -82,7 +82,7 @@ def train_model(keyword_dataframe: pd.DataFrame) -> tuple:
     # e.g. hour_of_day and total_mentions
     # don't disproportinately affect the model (Normalises)
 
-    training_inp, training_out, testing_inp, training_out = train_test_split(scaled_dataframe,
+    training_inp, training_out, testing_inp, testing_out = train_test_split(scaled_dataframe,
                                                         mentions_from_dataframe,
                                                         test_size=0.2,
                                                         random_state=42)
