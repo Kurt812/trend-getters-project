@@ -12,8 +12,8 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from psycopg2.extras import RealDictCursor
 from sqlalchemy.exc import SQLAlchemyError
 
-from etl_lambda import (setup_engine, setup_connection, s3_connection, download_csv_from_s3,
-                        upload_to_s3, delete_local_file, fetch_subscription_data_from_rds, clear_keyword_recordings, lambda_handler, REMOVE_QUERY, UPDATE_QUERY)
+from etl_lambda import (setup_engine, setup_connection, s3_connection, download_csv_from_s3, upload_to_s3, delete_local_file,
+                        fetch_subscription_data_from_rds, clear_keyword_recordings, lambda_handler, REMOVE_QUERY, UPDATE_QUERY)
 
 
 @pytest.fixture()
@@ -45,7 +45,8 @@ def test_setup_engine(mock_engine, mock_env):
     """Test successful setup of sqlalchemy engine."""
     engine = setup_engine()
 
-    expected_conn_str = f"""postgresql+psycopg2://{os.environ['DB_USERNAME']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"""
+    expected_conn_str = f"""postgresql+psycopg2://{os.environ['DB_USERNAME']}:{
+        os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"""
 
     mock_engine.assert_called_once_with(expected_conn_str)
     assert engine == mock_engine.return_value
@@ -137,7 +138,7 @@ def test_successful_s3_connection(mock_client):
     """Test the successful connection to an S3 client without real-world side effects."""
     s3_connection()
     mock_client.assert_called_once_with(
-        's3', 'fake_access_key', 'fake_secret_key')
+        's3')
 
 
 @patch.dict(os.environ, {}, clear=True)
@@ -153,14 +154,13 @@ def test_unsuccessful_s3_connection_missing_env(mock_client, caplog):
 @patch('boto3.client')
 def test_s3_connection_raises_client_error(mock_client, caplog):
     """Test that s3 connection function can and will raise the NoCredentialsError."""
-    mock_client.side_effect = ClientError( error_response={'Error': {'Code': 'AuthFailure', 'Message': 'Authentication failure'}},
-        operation_name='connect')
+    mock_client.side_effect = ClientError(error_response={'Error': {'Code': 'AuthFailure', 'Message': 'Authentication failure'}},
+                                          operation_name='connect')
     with pytest.raises(ClientError):
         s3_connection()
     assert 'An AWS ClientError occurred:' in caplog.text
 
-    mock_client.assert_called_once_with(
-        's3', 'fake_access_key', 'fake_secret_key')
+    mock_client.assert_called_once_with('s3')
 
 
 @patch('boto3.client')
@@ -171,8 +171,7 @@ def test_s3_connection_raises_endpoint_connection_error(mock_client, caplog):
         s3_connection()
     assert 'Failed to connect to the S3 endpoint:' in caplog.text
 
-    mock_client.assert_called_once_with(
-        's3', 'fake_access_key', 'fake_secret_key')
+    mock_client.assert_called_once_with('s3')
 
 
 @patch('etl_lambda.pd.read_csv')
@@ -304,7 +303,8 @@ def test_successful_upload_to_s3(mock_s3_conn, caplog):
     with caplog.at_level(logging.INFO):
         upload_to_s3(bucket_name, file_name, object_name)
 
-    assert f'Uploaded {file_name} to s3://{bucket_name}/{object_name}' in caplog.text
+    assert f'Uploaded {
+        file_name} to s3://{bucket_name}/{object_name}' in caplog.text
     mock_s3.upload_file.assert_called_once()
 
 
@@ -354,7 +354,8 @@ def test_upload_s3_clienterror(mock_s3_conn, caplog):
     mock_s3.upload_file.assert_called_once_with(
         f'/tmp/{file_name}', bucket_name, object_name)
 
-    assert f'Failed to upload {file_name} to S3 (AWS Client Error): ' in caplog.text
+    assert f'Failed to upload {
+        file_name} to S3 (AWS Client Error): ' in caplog.text
 
 
 @patch('etl_lambda.s3_connection')
@@ -372,7 +373,8 @@ def test_upload_s3_exception(mock_s3_conn, caplog):
     mock_s3.upload_file.assert_called_once_with(
         f'/tmp/{file_name}', 'test_bucket', 'object_name')
 
-    assert f'Unexpected error while uploading {file_name} to S3: ' in caplog.text
+    assert f'Unexpected error while uploading {
+        file_name} to S3: ' in caplog.text
 
 
 @patch('os.path.exists', return_value=True)
@@ -419,7 +421,8 @@ def test_delete_local_file_permissionerror(mock_remove, mock_exists, caplog):
     mock_exists.assert_called_once_with(f'/tmp/{file_name}')
     mock_remove.assert_called_once()
 
-    assert f'Permission denied while trying to delete /tmp/{file_name}: ' in caplog.text
+    assert f'Permission denied while trying to delete /tmp/{
+        file_name}: ' in caplog.text
 
 
 @patch('etl_lambda.delete_local_file')

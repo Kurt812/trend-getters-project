@@ -1,5 +1,6 @@
 """This script updates the archive data files in the S3 bucket"""
 
+from json import load
 import os
 import logging
 from os import environ as ENV
@@ -13,7 +14,8 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
-SCHEMA_NAME = ENV["SCHEMA_NAME"]
+load_dotenv()
+SCHEMA_NAME = ENV['SCHEMA_NAME']
 UPDATE_QUERY = f"""
         SELECT
             *
@@ -103,7 +105,8 @@ def s3_connection() -> boto3.client:
         s3 = boto3.client("s3")
         return s3
     except ClientError as e:
-        logging.error("An AWS ClientError occurred: %s", e.response['Error']['Message'])
+        logging.error("An AWS ClientError occurred: %s",
+                      e.response['Error']['Message'])
         raise
     except EndpointConnectionError as e:
         logging.error("Failed to connect to the S3 endpoint: %s", e)
