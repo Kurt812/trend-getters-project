@@ -11,12 +11,17 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from email_validator import validate_email, EmailNotValidError
 
+import networkx as nx
+import matplotlib.pyplot as plt
 
 from queries import (get_mentions_avg_sentiment_for_keyword,
-                     get_overall_change_in_sentiment_mentions, get_keyword_id)
+                     get_overall_change_in_sentiment_mentions, get_keyword_id, get_related_words)
 from combined_data import main_combine
 from predict_mentions import main_predict
+
+
 load_dotenv()
+pd.set_option('display.precision', 2)
 API_ENDPOINT = ENV["API_ENDPOINT"]
 
 
@@ -37,16 +42,6 @@ def get_connection() -> tuple:
 
 def fetch_user_keywords(user_id: int) -> list[str]:
     """Fetch a user's existing keywords"""
-    # query = """SELECT k.keyword
-    #            FROM subscription s
-    #            JOIN keywords k ON s.keywords_id = k.keywords_id
-    #            WHERE s.user_id = %s;"""
-
-    # _, cursor = get_connection()
-    # cursor.execute(query, (user_id,))
-    # results = cursor.fetchall()
-
-    # return [result["keyword"] for result in results]
     conn, cursor = get_connection()
     try:
         query = """SELECT k.keyword
@@ -69,7 +64,7 @@ def fetch_keyword_id(keyword: str) -> list:
 
 def subscribe_to_keyword(user_id: int, keywords_id: int, subscription_status: bool,
                          notification_threshold: int) -> None:
-    """Subscribe a user to a keyword with a given threshold, 
+    """Subscribe a user to a keyword with a given threshold,
     inserting if not exists and updating if exists"""
     check_query = """
         SELECT 1
@@ -194,7 +189,7 @@ def process_user(user_first: str, user_last: str, email: str) -> None:
         else:
             st.session_state.update({
                 "user_verified": False,
-                "verification_error": """The email exists, but the name does not match. 
+                "verification_error": """The email exists, but the name does not match.
                 Please try again."""
             })
     else:
@@ -337,11 +332,11 @@ def display_center_message() -> None:
     st.markdown(
         """
         <div style="
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 80vh; 
-            color: grey; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 80vh;
+            color: grey;
             font-size: 20px;
         ">
         Enter keywords to see visualizations
@@ -384,6 +379,8 @@ def main() -> None:
             filtered_data, data_12, selected_keywords, existing_keywords)
         display_users_page_visuals_layer_2(
             filtered_data, data_12, selected_keywords, existing_keywords)
+        display_users_page_visuals_layer_3(
+            selected_keywords, existing_keywords, cursor)
 
 
 def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list):
@@ -477,12 +474,8 @@ def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12
 
 def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list):
     """Second layer of metrics and graphs to be displayed."""
-    # get prediction value
-    # show key words, and link to submission of new topic
-    left, right = st.columns([2, 4])
 
-    # we put explore other words perhaps
-    # or predictions
+    left, right = st.columns([2, 4])
 
     if len(selected_keywords) == 0:
         last_submitted_keyword = existing_keywords[-1]
@@ -496,15 +489,111 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
 
         with left:
             st.markdown(
-                f"In the next hour, we predict the total mentions of **{last_submitted_keyword} to be** \n ")
+                f"In the next hour, we predict the total mentions of **{last_submitted_keyword}** to be:")
             prediction = main_predict(last_submitted_keyword)
-            print(archival_data.columns)
-            print(archival_data)
-            st.metric(label='', value=prediction)
+
+            data = archival_data.sort_values(
+                by=['date_and_hour'], ascending=False)
+            only_keyword_data = data[data['keywords_id'] ==
+                                     keyword_id]
+
+            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
+            st.metric(label='', value=prediction, delta=(
+                prediction-first_total_mentions))
         with right:
             chart = plot_avg_sentiment_over_time(
                 [last_submitted_keyword], archival_data)
             st.altair_chart(chart, use_container_width=True)
+    elif len(selected_keywords) == 1:
+        keyword_id = fetch_keyword_id(
+            selected_keywords[0]).get('keywords_id')
+        archival_data = archival_data[archival_data['keywords_id']
+                                      == keyword_id]
+
+        data = data_upto_12hrs[data_upto_12hrs['keyword']
+                               == selected_keywords[0]]
+
+        with left:
+            st.markdown(
+                f"In the next hour, we predict the total mentions of **{selected_keywords[0]}** to be:")
+            prediction = main_predict(selected_keywords[0])
+            data = archival_data.sort_values(
+                by=['date_and_hour'], ascending=False)
+            only_keyword_data = data[data['keywords_id'] ==
+                                     keyword_id]
+
+            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
+            st.metric(label='', value=prediction, delta=(
+                prediction-first_total_mentions))
+        with right:
+            chart = plot_avg_sentiment_over_time(
+                [selected_keywords[0]], archival_data)
+            st.altair_chart(chart, use_container_width=True)
+    else:
+        with left:
+            keyword_predictions_list = []
+            keyword_id_list = []
+            for keyword in selected_keywords:
+                keyword_predictions_list.append(
+                    {'Keyword': keyword, 'Prediction': round(main_predict(keyword), 2)})
+                keyword_id_list.append(
+                    fetch_keyword_id(keyword)['keywords_id'])
+
+            st.markdown(
+                f"In the next hour, we predict the total mentions of your keywords to be:")
+
+            table_data = pd.DataFrame(
+                keyword_predictions_list)
+
+            data = archival_data.sort_values(
+                by=['date_and_hour'], ascending=False)
+            only_keyword_data = data[data['keywords_id'].isin(keyword_id_list)]
+
+            first_total_mentions = only_keyword_data['total_mentions'].iloc[:(len(selected_keywords))].to_list(
+            )
+            table_data['Mentions in the last Hour'] = first_total_mentions
+            table_data['Mentions in the last Hour'] = table_data['Mentions in the last Hour']
+
+            st.table(table_data.set_index(['Keyword']))
+
+        with right:
+            chart = plot_avg_sentiment_over_time(
+                [selected_keywords[0]], archival_data)
+            st.altair_chart(chart, use_container_width=True)
+
+
+def display_users_page_visuals_layer_3(selected_keywords, existing_keywords, cursor):
+    """Function to display the related words maps"""
+    related_terms = {}
+    for keyword in selected_keywords:
+        result = get_related_words(keyword, cursor)
+        related_terms[keyword] = [row.get('related_term') for row in result]
+
+    print(related_terms)
+    G = nx.Graph()
+    for main_word, related in related_terms.items():
+        for word in related:
+            G.add_edge(main_word, word)
+
+    plt.figure(figsize=(10, 9))
+    pos = nx.spring_layout(G, seed=42)
+    nx.draw(
+        G,
+        pos,
+        with_labels=True,
+        node_size=1000,
+        node_color="skyblue",
+        font_size=10,
+        font_color="black",
+        font_weight="bold",
+        edge_color="gray",
+    )
+    plt.title("Related Words Network", fontsize=16)
+    plt.savefig("transparent_graph.png", transparent=True, bbox_inches="tight")
+    st.image("transparent_graph.png")
+    plt.close()
+
+    # remove the gap from them and format
 
 
 def get_percentage_change_mentions_sentiment(keywords: list, data: pd.DataFrame) -> pd.DataFrame:
