@@ -34,7 +34,7 @@ jobs:
       - name: Run pytest
         id: pytest
         run: |
-          python3 -m pytest > test-results.txt || true
+          pytest > test-results.txt || true
           pass_count=$(grep -Po '\d+(?= passed)' test-results.txt || echo "0")
           fail_count=$(grep -Po '\d+(?= failed)' test-results.txt || echo "0")
           skip_count=$(grep -Po '\d+(?= skipped)' test-results.txt || echo "0")
