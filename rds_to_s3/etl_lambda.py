@@ -13,19 +13,17 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
-load_dotenv()
-
 SCHEMA_NAME = ENV["SCHEMA_NAME"]
 UPDATE_QUERY = f"""
         SELECT
             *
         FROM
             {SCHEMA_NAME}.keyword_recordings kr
-        WHERE created_at < NOW() - INTERVAL '24 HOURS'
+        WHERE date_and_hour < NOW() - INTERVAL '24 HOURS'
         """
 REMOVE_QUERY = f"""
         DELETE FROM {SCHEMA_NAME}.keyword_recordings
-        WHERE created_at < NOW() - INTERVAL '24 HOURS'
+        WHERE date_and_hour < NOW() - INTERVAL '24 HOURS'
     """
 
 logging.basicConfig(
@@ -102,8 +100,7 @@ def s3_connection() -> boto3.client:
             logging.error("Missing required AWS credentials in .env file.")
             raise ValueError("Missing AWS credentials.")
 
-        s3 = boto3.client("s3", aws_access_key_id,
-                          aws_secret_access_key)
+        s3 = boto3.client("s3")
         return s3
     except ClientError as e:
         logging.error("An AWS ClientError occurred: %s", e.response['Error']['Message'])
