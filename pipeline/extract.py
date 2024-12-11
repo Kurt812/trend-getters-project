@@ -9,7 +9,6 @@ import pandas as pd
 from boto3 import client
 from dotenv import load_dotenv
 from pytrends.request import TrendReq
-from botocore.config import Config
 
 load_dotenv(".env")
 
@@ -116,6 +115,3 @@ def main(topic: list[str]) -> pd.DataFrame:
                                                              for suggestion in fetch_suggestions(pytrend, keyword)])
     return extracted_dataframe
 
-
-if __name__ == "__main__":
-    main(["apply"])
