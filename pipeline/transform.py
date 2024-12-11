@@ -8,7 +8,8 @@ import pandas as pd
 import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import cursor as curs, connection as conn
-from dotenv import dotenv_values
+from dotenv import load_dotenv
+from os import environ as ENV
 
 
 logging.basicConfig(
@@ -20,15 +21,15 @@ logging.basicConfig(
 )
 
 
-def get_connection(config: dotenv_values) -> conn:
+def get_connection() -> conn:
     """Importing the data into the database"""
     try:
         con = psycopg2.connect(
-            user=config["DB_USERNAME"],
-            password=config["DB_PASSWORD"],
-            host=config["DB_HOST"],
-            port=config["DB_PORT"],
-            database=config["DB_NAME"]
+            user=ENV["DB_USERNAME"],
+            password=ENV["DB_PASSWORD"],
+            host=ENV["DB_HOST"],
+            port=ENV["DB_PORT"],
+            database=ENV["DB_NAME"]
         )
     except psycopg2.OperationalError as e:
         logging.error(
@@ -98,10 +99,10 @@ def extract_keywords_from_csv(csv_file) -> pd.Series:
 
 def main(dataframe: pd.DataFrame) -> pd.DataFrame:
     """Main function to run transform.py"""
-    env_values = dotenv_values(".env")
+    load_dotenv()
 
     logging.info("Connecting to the trends RDS")
-    connection = get_connection(env_values)
+    connection = get_connection()
     cursor = get_cursor(connection)
     keywords_from_dataframe = list(dataframe['Keyword'])
 

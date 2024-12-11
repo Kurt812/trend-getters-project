@@ -89,13 +89,14 @@ def get_overall_change_in_sentiment_mentions(keywords: list, cursor: cursor) -> 
 def get_related_words(keyword: str, cursor: cursor) -> pd.DataFrame:
     """Query to get related words."""
     query = """
-            SELECT k.keyword, rt.related_term
-            FROM keyword_recordings as kr
-            JOIN keywords as k ON kr.keywords_id = k.keywords_id
-            JOIN related_term_assignment as rta ON k.keywords_id = rta.keywords_id
-            JOIN related_terms as rt ON rta.related_term_id = rt.related_term_id
-            WHERE keyword = %s
-            LIMIT 5;"""
+            SELECT DISTINCT k.keyword, rt.related_term
+            FROM keyword_recordings AS kr
+            JOIN keywords AS k ON kr.keywords_id = k.keywords_id
+            JOIN related_term_assignment AS rta ON k.keywords_id = rta.keywords_id
+            JOIN related_terms AS rt ON rta.related_term_id = rt.related_term_id
+            WHERE k.keyword = %s
+            LIMIT 5;
+            """
     cursor.execute(query, (keyword, ))
     result = cursor.fetchall()
     return result
