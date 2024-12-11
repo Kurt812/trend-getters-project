@@ -3,8 +3,7 @@ from os import environ as ENV
 import pandas as pd
 import psycopg2
 from psycopg2.extensions import cursor
-from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
+from psycopg2.extras import RealDictCursor, RealDictRow
 
 
 def get_connection() -> tuple:
@@ -35,7 +34,7 @@ def get_mentions_avg_sentiment_for_keyword(keyword: str, cursor: cursor) -> pd.D
     return pd.DataFrame(result)
 
 
-def get_overall_change_in_sentiment_mentions(keywords: list, cursor: cursor) -> pd.DataFrame:
+def get_overall_change_in_sentiment_mentions(keyword: list, cursor: cursor) -> pd.DataFrame:
     """Query to return the overall change in average sentiment of given keywords over the last 24hrs."""
 
     query = """
@@ -63,17 +62,14 @@ def get_overall_change_in_sentiment_mentions(keywords: list, cursor: cursor) -> 
         FROM avg_sentiment_24_ago AS a
         JOIN avg_sentiment_now AS n ON n.keyword = a.keyword;
     """
-
-    # Execute the query, passing the keywords list for the `ANY` operator
+    cursor.execute(query, (keyword, ))
     result = cursor.fetchall()
 
-    # Convert result to a DataFrame
     df = pd.DataFrame(result, columns=[
         'avg_sentiment_24_ago', 'total_mentions_24_ago', 'keyword',
         'avg_sentiment_now', 'total_mentions_now'
     ])
 
-    # Calculate percentage changes
     df['percentage_change_mentions'] = (
         (df['total_mentions_now'] - df['total_mentions_24_ago']) /
         df['total_mentions_24_ago']
@@ -86,7 +82,7 @@ def get_overall_change_in_sentiment_mentions(keywords: list, cursor: cursor) -> 
     return df
 
 
-def get_related_words(keyword: str, cursor: cursor) -> pd.DataFrame:
+def get_related_words(keyword: str, cursor: cursor) -> RealDictRow:
     """Query to get related words."""
     query = """
             SELECT DISTINCT k.keyword, rt.related_term
@@ -113,9 +109,7 @@ def get_keyword_id(keyword: str, cursor: cursor) -> int:
     return result.get('keywords_id')
 
 
-# want to make these functions so that
-
-def get_most_mentioned_word(cursor: cursor):
+def get_most_mentioned_word(cursor: cursor) -> RealDictRow:
     """Function returns most mentioned word"""
     query = """
     SELECT k.keyword, SUM(kr.total_mentions) AS total_mentions, AVG(kr.avg_sentiment)
@@ -130,7 +124,7 @@ def get_most_mentioned_word(cursor: cursor):
     return cursor.fetchall()
 
 
-def get_most_positive_word(cursor: cursor):
+def get_most_positive_word(cursor: cursor) -> RealDictRow:
     """Function to get the most positive word from the last 24 hours."""
     query = """
         SELECT k.keyword, MAX(kr.avg_sentiment) AS max_sentiment, kr.date_and_hour
@@ -146,7 +140,7 @@ def get_most_positive_word(cursor: cursor):
     return result
 
 
-def get_most_negative_word(cursor: cursor):
+def get_most_negative_word(cursor: cursor) -> RealDictRow:
     """Function to get most negative sentiment word of the last 24 hours """
     query = """
         SELECT k.keyword, MIN(kr.avg_sentiment) AS min_sentiment, kr.date_and_hour
@@ -159,13 +153,3 @@ def get_most_negative_word(cursor: cursor):
         """
     cursor.execute(query)
     return cursor.fetchall()
-
-
-# want to combine to check historical combined data too
-# if __name__ == "__main__":
-#     load_dotenv()
-#     df = main()
-#     print(df.columns)
-    # print(df.sort_values(by=['date_and_hour'], ascending=False))
-    # conn, curs = get_connection()
-    # get_keyword_id('fact', curs)

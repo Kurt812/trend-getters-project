@@ -1,5 +1,6 @@
 """Trend Getter Dashboard"""
 
+# pylint: disable=line-too-long
 from os import environ as ENV
 import pandas as pd
 import altair as alt
@@ -8,6 +9,7 @@ import streamlit as st
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2.extensions import cursor
 from email_validator import validate_email, EmailNotValidError
 from streamlit_agraph import agraph, Node, Edge, Config
 
@@ -445,7 +447,7 @@ def main() -> None:
                 existing_keywords, selected_keywords, cursor)
 
 
-def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list):
+def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
     """Function to show visualisations of user's submitted keywords once logged in."""
 
     if len(selected_keywords) <= 2:
@@ -533,7 +535,7 @@ def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12
             st.table(result)
 
 
-def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list):
+def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
     """Second layer of metrics and graphs to be displayed."""
 
     left, right = st.columns([2, 4])
@@ -559,7 +561,6 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
                                      keyword_id]
 
             first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            delta = (prediction-first_total_mentions)
 
             st.metric(label='', value=prediction, delta=(
                 prediction-first_total_mentions))
@@ -603,7 +604,7 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
                     fetch_keyword_id(keyword)['keywords_id'])
 
             st.markdown(
-                f"In the next hour, we predict the total mentions of your keywords to be:")
+                "In the next hour, we predict the total mentions of your keywords to be:")
 
             table_data = pd.DataFrame(
                 keyword_predictions_list)
@@ -627,7 +628,7 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
             st.altair_chart(chart, use_container_width=True)
 
 
-def display_user_page_visuals_networks(existing_keywords, selected_keywords, cursor):
+def display_user_page_visuals_networks(selected_keywords: list, cursor: cursor):
     """Display network graphs if only one or 2 keywords are present."""
     if len(selected_keywords) == 1:
         text, middle, _ = st.columns([1, 5, 1])
@@ -644,7 +645,7 @@ def display_user_page_visuals_networks(existing_keywords, selected_keywords, cur
             network_graph(selected_keywords[1], cursor)
 
 
-def network_graph(keyword, cursor):
+def network_graph(keyword: str, cursor: cursor) -> agraph:
     """Make a network graph for all the related terms of a given keyword"""
     nodes = []
     edges = []
@@ -693,7 +694,7 @@ def network_graph(keyword, cursor):
     return agraph(nodes=nodes, edges=edges, config=config)
 
 
-def display_new_user_stats(cursor):
+def display_new_user_stats(cursor: cursor) -> None:
     """Function to display overall database values."""
     _, left, _, middle, _, right, _ = st.columns([2, 2, 1, 2, 1, 2, 1])
     with left:
@@ -795,7 +796,7 @@ def plot_total_mentions(keywords: list, data: pd.DataFrame) -> alt.Chart:
 
     filtered_data = add_keyword_column(keywords, data)
 
-    chart = alt.Chart(filtered_data, title=f'Mentions Over Time').mark_line().encode(
+    chart = alt.Chart(filtered_data, title='Mentions Over Time').mark_line().encode(
         x=alt.X('date_and_hour:T', title='Date',
                 axis=alt.Axis(format='%d-%m-%Y')),
         y=alt.Y('total_mentions:Q', title='Total Mentions'),
@@ -807,14 +808,12 @@ def plot_total_mentions(keywords: list, data: pd.DataFrame) -> alt.Chart:
     ).properties(width=800, height=400).interactive()
     return chart
 
-# add an info box to explain average sentiment score meaning maybe add a link to vadersentiment / something to do with calc
-
 
 def plot_avg_sentiment_over_time(keywords: list, data: pd.DataFrame) -> alt.Chart:
     """Function to plot graph of average sentiment overtime for a given keyword(s)."""
     filtered_data = add_keyword_column(keywords, data)
 
-    chart = alt.Chart(filtered_data, title=f'Average Sentiment Over Time').mark_line().encode(
+    chart = alt.Chart(filtered_data, title='Average Sentiment Over Time').mark_line().encode(
         x=alt.X('date_and_hour:T', title='Date',
                 axis=alt.Axis(format='%d-%m-%Y')),
         y=alt.Y('avg_sentiment:Q', title='Average Sentiment'),
@@ -828,7 +827,7 @@ def plot_avg_sentiment_over_time(keywords: list, data: pd.DataFrame) -> alt.Char
     return chart
 
 
-def get_sentiment_overall_change_metric(data: pd.DataFrame):
+def get_sentiment_overall_change_metric(data: pd.DataFrame) -> None:
     """Function to show the metric displaying the overall change of average sentiment since the keyword being added into database."""
     if not data.empty and len(data) > 0:
         try:
@@ -844,7 +843,7 @@ def get_sentiment_overall_change_metric(data: pd.DataFrame):
         st.info("No data available to calculate sentiment change.")
 
 
-def get_total_mentions_change_metric(data: pd.DataFrame):
+def get_total_mentions_change_metric(data: pd.DataFrame) -> None:
     """Function to show metric displaying overall change in total mentions over 12 hours."""
     if not data.empty and len(data) > 0:
         try:
