@@ -65,11 +65,3 @@ CREATE TABLE IF NOT EXISTS subscription (
     FOREIGN KEY (user_id) REFERENCES "user"(user_id),
     FOREIGN KEY (keywords_id) REFERENCES keywords(keywords_id)
 );
-
-
-
-
-
-
-
-
