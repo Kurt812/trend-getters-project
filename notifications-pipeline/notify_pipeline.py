@@ -46,11 +46,22 @@ def find_unique_keywords(cursor):
     keywords = cursor.fetchall()
     return keywords
 
+def fetch_keyword(cursor, id):
+    """Find keyword name from ID"""
+    cursor.execute(
+        """SELECT keyword
+         FROM keywords
+         WHERE keywords_id = %s""", (id,))
+    keywords = cursor.fetchone()
+    return keywords
+
 def main():
     """Run ETL through API for each keyword"""
     _, cursor = get_connection()
     keywords = find_unique_keywords(cursor)
-    for keyword in keywords:
+    for id in keywords:
+        keyword = fetch_keyword(cursor, id["keywords_id"])["keyword"]
+        print(keyword)
         topic_data = {"topic_name": keyword}
         submit_topic(topic_data)
 
