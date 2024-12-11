@@ -1,3 +1,7 @@
+"""Script to update keyword recordings for subscribed to keywords"""
+
+# pylint: disable=E0401
+
 from os import environ as ENV
 import requests
 from dotenv import load_dotenv
@@ -35,6 +39,7 @@ def submit_topic(data: dict) -> None:
         print(f"Failed to connect to the API. Error: {e}")
 
 def find_unique_keywords(cursor):
+    """Fetch keywords that have been subscribed to"""
     cursor.execute(
         """SELECT DISTINCT keywords_id
          FROM subscription""")
@@ -42,6 +47,7 @@ def find_unique_keywords(cursor):
     return keywords
 
 def main():
+    """Run ETL through API for each keyword"""
     _, cursor = get_connection()
     keywords = find_unique_keywords(cursor)
     for keyword in keywords:
