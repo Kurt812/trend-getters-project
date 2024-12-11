@@ -91,25 +91,4 @@ resource "aws_lambda_function" "notifications_lambda" {
 
 }
 
-# EventBridge Rule for Hourly Schedule
-resource "aws_cloudwatch_event_rule" "notifications_schedule_rule" {
-  name                = "notifications_lambda_schedule_hourly"
-  description         = "Runs the notifications Lambda every hour"
-  schedule_expression = "rate(1 hour)"  # Every hour
-}
 
-# Lambda Permission for EventBridge Rule
-resource "aws_lambda_permission" "notifications_allow_eventbridge" {
-  statement_id  = "AllowExecutionFromEventBridgeHourly"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.notifications_lambda.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.notifications_schedule_rule.arn
-}
-
-# EventBridge Target for Lambda
-resource "aws_cloudwatch_event_target" "notifications_lambda_target" {
-  rule      = aws_cloudwatch_event_rule.notifications_schedule_rule.name
-  target_id = "notifications-lambda-hourly-target"
-  arn       = aws_lambda_function.notifications_lambda.arn
-}
