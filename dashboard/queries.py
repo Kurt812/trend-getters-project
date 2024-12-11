@@ -114,6 +114,51 @@ def get_keyword_id(keyword: str, cursor: cursor) -> int:
 
 # want to make these functions so that
 
+def get_most_mentioned_word(cursor: cursor):
+    """Function returns most mentioned word"""
+    query = """
+    SELECT k.keyword, SUM(kr.total_mentions) AS total_mentions, AVG(kr.avg_sentiment)
+    FROM keyword_recordings AS kr
+    JOIN keywords AS k ON k.keywords_id = kr.keywords_id
+    WHERE kr.date_and_hour >= NOW() - INTERVAL '24 HOURS'
+    GROUP BY k.keyword
+    ORDER BY total_mentions DESC
+    LIMIT 1;
+        """
+    cursor.execute(query)
+    return cursor.fetchall()
+
+
+def get_most_positive_word(cursor: cursor):
+    """Function to get the most positive word from the last 24 hours."""
+    query = """
+        SELECT k.keyword, MAX(kr.avg_sentiment) AS max_sentiment, kr.date_and_hour
+        FROM keyword_recordings AS kr
+        JOIN keywords AS k ON k.keywords_id = kr.keywords_id
+        WHERE kr.date_and_hour >= NOW() - INTERVAL '24 HOURS'
+        GROUP BY k.keyword, kr.date_and_hour
+        ORDER BY max_sentiment DESC
+        LIMIT 1;
+        """
+    cursor.execute(query)
+    result = cursor.fetchall()
+    return result
+
+
+def get_most_negative_word(cursor: cursor):
+    """Function to get most negative sentiment word of the last 24 hours """
+    query = """
+        SELECT k.keyword, MIN(kr.avg_sentiment) AS min_sentiment, kr.date_and_hour
+        FROM keyword_recordings AS kr
+        JOIN keywords AS k ON k.keywords_id = kr.keywords_id
+        WHERE kr.date_and_hour >= NOW() - INTERVAL '24 HOURS'
+        GROUP BY k.keyword, kr.date_and_hour
+        ORDER BY min_sentiment ASC
+        LIMIT 1;
+        """
+    cursor.execute(query)
+    return cursor.fetchall()
+
 
 # want to combine to check historical combined data too
 # if __name__ == "__main__":

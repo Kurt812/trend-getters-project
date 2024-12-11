@@ -14,8 +14,8 @@ from email_validator import validate_email, EmailNotValidError
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from queries import (get_mentions_avg_sentiment_for_keyword,
-                     get_overall_change_in_sentiment_mentions, get_keyword_id, get_related_words)
+from queries import (get_related_words, get_most_negative_word,
+                     get_most_positive_word, get_most_mentioned_word)
 from combined_data import main_combine
 from predict_mentions import main_predict
 
@@ -352,19 +352,28 @@ def main() -> None:
     st.set_page_config(page_title="Trend Getter",
                        page_icon=":chart_with_upwards_trend:", layout="wide")
     st.title("Trend Getter Dashboard")
-
+    st.markdown(
+        """
+    <div style="text-align: center; margin-top: 50px;">
+        <img src="https://github.com/Kurt812/trend-getters-project/blob/main/images/trend_getters.png" alt="Trendgetter logo" style="width: 50%;">
+    </div>
+    """,
+        unsafe_allow_html=True
+    )
+    connection, cursor = get_connection()
     if "user_verified" not in st.session_state:
         st.session_state["user_verified"] = False
 
     if not st.session_state["user_verified"]:
         st.write("Submit your details to track trends.")
         user_verification()
+        st.write('Over the last 24 hours:')
+        display_new_user_stats(cursor)
     else:
         existing_keywords = topic_and_subscription_ui()
         if st.session_state.get("is_new_user", False):
             display_center_message()
 
-        connection, cursor = get_connection()
         selected_keywords = get_keyword_filter(existing_keywords)
         combined_data = main_combine()
         filtered_data_list = filter_by_keyword(
@@ -594,6 +603,27 @@ def display_users_page_visuals_layer_3(selected_keywords, existing_keywords, cur
     plt.close()
 
     # remove the gap from them and format
+
+
+def display_new_user_stats(cursor):
+    """Function to display overall database values."""
+    _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
+    with left:
+        positive_word = get_most_positive_word(cursor)[0].get('keyword')
+
+        sentiment = get_most_positive_word(cursor)[0].get('max_sentiment')
+        st.metric(label='The most **positive** word is:',
+                  value=positive_word, delta=sentiment)
+    with middle:
+        most_mentioned_word = get_most_mentioned_word(cursor)[0].get('keyword')
+        mentions = get_most_mentioned_word(cursor)[0].get('total_mentions')
+        st.metric('The most mentioned word is:',
+                  value=most_mentioned_word, delta=mentions)
+    with right:
+        negative_word = get_most_negative_word(cursor)[0].get('keyword')
+        sentiment = get_most_negative_word(cursor)[0].get('min_sentiment')
+        st.metric(label='The most **negative** word is:',
+                  value=negative_word, delta=sentiment)
 
 
 def get_percentage_change_mentions_sentiment(keywords: list, data: pd.DataFrame) -> pd.DataFrame:
