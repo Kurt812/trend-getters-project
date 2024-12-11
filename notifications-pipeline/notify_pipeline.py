@@ -44,9 +44,9 @@ def find_unique_keywords(cursor):
 def main():
     _, cursor = get_connection()
     keywords = find_unique_keywords(cursor)
-    print(keywords)
-    topic_data = {"topic_name": ['chocolate']}
-    submit_topic(topic_data)
+    for keyword in keywords:
+        topic_data = {"topic_name": keyword}
+        submit_topic(topic_data)
 
 if __name__ == "__main__":
     main()
