@@ -9,3 +9,4 @@ boto3>=1.28.0
 aioboto3>=11.0.0
 freezegun>=1.2.0
 pytrends
+

@@ -24,7 +24,7 @@ def test_successful_post_request(test_api):
         mock_main.assert_called_once_with(['test'])
         assert response.status_code == 200
         assert response.json['message'] == 'Topic added successfully'
-        assert response.json['topic'] == {'topic_name': 'test'}
+        assert response.json['topic'] == 'test'
 
 
 def test_unsuccessful_post_missing_topic(test_api):
@@ -46,4 +46,4 @@ def test_more_than_one_word_topic(test_api):
         mock_main.assert_called_once_with(['testing this'])
         assert response.status_code == 200
         assert response.json['message'] == 'Topic added successfully'
-        assert response.json['topic'] == {'topic_name': 'testing this'}
+        assert response.json['topic'] == 'testing this'

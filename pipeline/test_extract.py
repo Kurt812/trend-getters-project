@@ -35,31 +35,9 @@ def file_data():
 @patch('extract.client')
 def test_successful_s3_connection(mock_client, aws_env_vars):
     """Test the successful connection to an S3 client without real-world side effects."""
-    mock_config = Config(
-        connect_timeout=5,
-        read_timeout=10,
-        retries={
-            'max_attempts': 3,
-            'mode': 'standard'
-        },
-        max_pool_connections=110
-    )
 
     s3_connection()
-    mock_client.assert_called_once_with(
-        's3',
-        aws_access_key_id='fake_access_key',
-        aws_secret_access_key='fake_secret_key',
-        config=ANY
-    )
-
-    actual_call = mock_client.call_args
-    actual_config = actual_call.kwargs['config']
-
-    assert actual_config.connect_timeout == mock_config.connect_timeout
-    assert actual_config.read_timeout == mock_config.read_timeout
-    assert actual_config.retries == mock_config.retries
-    assert actual_config.max_pool_connections == mock_config.max_pool_connections
+    mock_client.assert_called_once_with('s3')
 
 
 @patch.dict(os.environ, {}, clear=True)
@@ -127,6 +105,7 @@ def test_average_sentiment_analysis_file_empty():
     assert avg_sentiment == 0
     assert mentions == 0
 
+
 @patch('extract.average_sentiment_analysis')
 @patch('extract.datetime')
 @patch('extract.client')
@@ -137,28 +116,29 @@ def test_extract_s3_success(mock_client, mock_datetime, mock_sentiment_analysis)
     mock_datetime.datetime.strftime = datetime.datetime.strftime
     bucket_name = 'bucket_name'
     topics = ['python']
-    
-    mock_client.list_objects_v2.side_effect = lambda Bucket, Prefix, Delimiter: (
-    {'Contents': [{'Key': f'{Prefix}00.json', 'LastModified': datetime.datetime(2024, 12, 9, 1, 0, 1), 'Size': 1324861}]}
-    if Prefix.startswith('bluesky/2024-12-09/') else
-    {'Contents': [{'Key': f'{Prefix}00.json', 'LastModified': datetime.datetime(2024, 12, 8, 1, 0, 1), 'Size': 1324861}]}
-    if Prefix.startswith('bluesky/2024-12-08/') else
-    {})
 
+    mock_client.list_objects_v2.side_effect = lambda Bucket, Prefix, Delimiter: (
+        {'Contents': [{'Key': f'{Prefix}00.json', 'LastModified': datetime.datetime(
+            2024, 12, 9, 1, 0, 1), 'Size': 1324861}]}
+        if Prefix.startswith('bluesky/2024-12-09/') else
+        {'Contents': [{'Key': f'{Prefix}00.json', 'LastModified': datetime.datetime(
+            2024, 12, 8, 1, 0, 1), 'Size': 1324861}]}
+        if Prefix.startswith('bluesky/2024-12-08/') else
+        {})
 
     mock_json_content = [{
         'python is great': {'Sentiment Score': {'compound': 0.5}},
         'python coding': {'Sentiment Score': {'compound': 0.7}}
     },
-    {
+        {
         'python not good': {'Sentiment Score': {'compound': -0.3}},
         'python bad': {'Sentiment Score': {'compound': -0.6}}
     }]
 
     mock_client.get_object.side_effect = [
-    {'Body': BytesIO(json.dumps(mock_json_content[i % 2]).encode('utf-8'))} for i in range(7)]       
+        {'Body': BytesIO(json.dumps(mock_json_content[i % 2]).encode('utf-8'))} for i in range(7)]
     mock_sentiment_analysis.side_effect = [
-    (0.6, 2) if i % 2 == 0 else (-0.45, 2) for i in range(7)
+        (0.6, 2) if i % 2 == 0 else (-0.45, 2) for i in range(7)
     ]
 
     result = extract_s3_data(mock_client, bucket_name, topics)
@@ -168,7 +148,7 @@ def test_extract_s3_success(mock_client, mock_datetime, mock_sentiment_analysis)
     assert 'Keyword' in result.columns
     assert 'Average Sentiment' in result.columns
     assert 'Total Mentions' in result.columns
-    assert 'Hour' in result.columns
+    assert 'Date and Hour' in result.columns
 
 
 @patch('datetime.datetime')
