@@ -496,13 +496,13 @@ def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12
                 st.altair_chart(chart, use_container_width=True)
             with right_1:
                 st.markdown(
-                    f'**{existing_keywords[0].title()}**')
+                    f'**{selected_keywords[0].title()}**')
 
                 get_total_mentions_change_metric(data_1)
                 get_sentiment_overall_change_metric(data_1)
             with right_2:
                 st.markdown(
-                    f'**{existing_keywords[1].title()}**')
+                    f'**{selected_keywords[1].title()}**')
                 get_total_mentions_change_metric(data_2)
                 get_sentiment_overall_change_metric(data_2)
 
@@ -523,8 +523,10 @@ def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12
                         group['total_mentions'].sum(), 4)
                 })
             )
+            result['average_sentiment'] = result['average_sentiment'].fillna(0)
             result['average_sentiment'] = result['average_sentiment'].apply(
                 lambda x: f"{x:.2f}".rstrip('0').rstrip('.'))
+
             result['total_mentions'] = result['total_mentions'].apply(
                 lambda x: f"{x:.0f}" if x.is_integer() else x)
 
@@ -579,15 +581,15 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
         with left:
             st.markdown(
                 f"In the next hour, we predict the total mentions of **{selected_keywords[0]}** to be:")
-            prediction = main_predict(selected_keywords[0])
+            prediction = round(main_predict(selected_keywords[0]), 2)
             data = archival_data.sort_values(
                 by=['date_and_hour'], ascending=False)
             only_keyword_data = data[data['keywords_id'] ==
                                      keyword_id]
 
             first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            st.metric(label='', value=prediction, delta=(
-                prediction-first_total_mentions))
+            st.metric(label='', value=prediction, delta=round((
+                prediction-first_total_mentions), 2))
         with right:
             chart = plot_avg_sentiment_over_time(
                 [selected_keywords[0]], archival_data)
