@@ -6,3 +6,4 @@ scikit-learn
 email_validator
 pandas
 numpy
+streamlit_agraph

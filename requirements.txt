@@ -14,3 +14,4 @@ streamlit
 pytrends
 sqlalchemy
 email_validator
+streamlit_agraph
