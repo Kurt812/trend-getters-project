@@ -58,7 +58,7 @@ def fetch_keyword(cursor, id):
     keywords = cursor.fetchone()
     return keywords
 
-def main():
+def main() -> None:
     """Run ETL through API for each keyword"""
     _, cursor = get_connection()
     keywords = find_unique_keywords(cursor)
