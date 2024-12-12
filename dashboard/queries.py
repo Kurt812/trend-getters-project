@@ -22,7 +22,7 @@ def get_connection() -> tuple:
 
 
 def get_mentions_avg_sentiment_for_keyword(keyword: str, cursor: cursor) -> pd.DataFrame:
-    """Query to return dataframe of data corresponding to word"""
+    """Query to return dataframe of data (total mentions, sentiment for each hour) corresponding to word."""
     query = """
         SELECT k.keyword, kr.total_mentions, kr.avg_sentiment, kr.date_and_hour
         FROM keyword_recordings as kr
@@ -110,7 +110,7 @@ def get_keyword_id(keyword: str, cursor: cursor) -> int:
 
 
 def get_most_mentioned_word(cursor: cursor) -> RealDictRow:
-    """Function returns most mentioned word"""
+    """Function returns most mentioned word (highest total_mentions)."""
     query = """
     SELECT k.keyword, SUM(kr.total_mentions) AS total_mentions, AVG(kr.avg_sentiment)
     FROM keyword_recordings AS kr
@@ -125,7 +125,7 @@ def get_most_mentioned_word(cursor: cursor) -> RealDictRow:
 
 
 def get_most_positive_word(cursor: cursor) -> RealDictRow:
-    """Function to get the most positive word from the last 24 hours."""
+    """Returns the word with the highest sentiment score over the past 24 hours, i.e. closest to 1."""
     query = """
         SELECT k.keyword, MAX(kr.avg_sentiment) AS max_sentiment, kr.date_and_hour
         FROM keyword_recordings AS kr
@@ -141,7 +141,7 @@ def get_most_positive_word(cursor: cursor) -> RealDictRow:
 
 
 def get_most_negative_word(cursor: cursor) -> RealDictRow:
-    """Function to get most negative sentiment word of the last 24 hours """
+    """Returns the word with the lowest sentiment score over the past 24 hours, i.e. closest to -1."""
     query = """
         SELECT k.keyword, MIN(kr.avg_sentiment) AS min_sentiment, kr.date_and_hour
         FROM keyword_recordings AS kr

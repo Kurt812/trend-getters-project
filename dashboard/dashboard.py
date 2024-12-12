@@ -443,8 +443,7 @@ def main() -> None:
                 filtered_data, data_12, selected_keywords, existing_keywords)
             display_users_page_visuals_layer_2(
                 filtered_data, data_12, selected_keywords, existing_keywords)
-            display_user_page_visuals_networks(
-                existing_keywords, selected_keywords, cursor)
+            display_user_page_visuals_networks(selected_keywords, cursor)
 
 
 def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
@@ -628,7 +627,7 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
             st.altair_chart(chart, use_container_width=True)
 
 
-def display_user_page_visuals_networks(selected_keywords: list, cursor: cursor):
+def display_user_page_visuals_networks(selected_keywords: list, cursor: cursor) -> None:
     """Display network graphs if only one or 2 keywords are present."""
     if len(selected_keywords) == 1:
         text, middle, _ = st.columns([1, 5, 1])
