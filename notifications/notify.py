@@ -150,7 +150,7 @@ def lambda_handler(event, context):
         </html>
         """
         send_email(notification['email'], message)
-        # print(message)
+   
 
     cursor.close()
     conn.close()
