@@ -65,7 +65,7 @@ resource "aws_lambda_function" "rds_to_s3_etl_lambda" {
 
   package_type  = "Image"
   architectures = ["x86_64"]
-  image_uri = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-rds-to-s3-ecr@sha256:80ce6b0839817fc7abcabc740003ce68ecf934b9bca2dcdcb9e229376804308e"
+  image_uri = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-rds-to-s3-ecr@sha256:18b75dc0397d28f7d0b6898876b1ce66845ea118cc31536c4a8ad866eadd944f"
 
   timeout       = 720
   depends_on    = [aws_cloudwatch_log_group.rds_to_s3_lambda_log_group]
@@ -73,7 +73,7 @@ resource "aws_lambda_function" "rds_to_s3_etl_lambda" {
   environment {
     variables = {
       SCHEMA_NAME    = var.SCHEMA_NAME
-      S3_BUCKET_NAME = "trendgineers-test-bucket" # Reference existing bucket
+      S3_BUCKET_NAME = var.S3_BUCKET_NAME
       DB_USERNAME    = var.DB_USERNAME
       DB_PASSWORD    = var.DB_PASSWORD
       DB_HOST        = var.DB_HOST
@@ -94,25 +94,25 @@ resource "aws_lambda_function" "rds_to_s3_etl_lambda" {
 
 }
 
-# # CloudWatch Event Rule for Schedule
-# resource "aws_cloudwatch_event_rule" "schedule_rule" {
-#   name        = "etl_lambda_schedule"
-#   description = "Runs the ETL Lambda every 5 minutes"
-#   schedule_expression = "rate(5 minutes)"
-# }
+# EventBridge Rule for Daily Schedule at 6 PM
+resource "aws_cloudwatch_event_rule" "schedule_rule" {
+  name                = "c14-trendgineers-etl-lambda-daily-schedule"
+  description         = "Runs the ETL Lambda every day at 6 PM"
+  schedule_expression = "cron(0 18 * * ? *)"  # Cron for 6:00 PM UTC daily
+}
 
-# # Lambda Permission for CloudWatch Rule
-# resource "aws_lambda_permission" "allow_cloudwatch" {
-#   statement_id  = "AllowExecutionFromCloudWatch"
-#   action        = "lambda:InvokeFunction"
-#   function_name = aws_lambda_function.rds_to_s3_etl_lambda.function_name
-#   principal     = "events.amazonaws.com"
-#   source_arn    = aws_cloudwatch_event_rule.schedule_rule.arn
-# }
+# Lambda Permission for EventBridge Rule
+resource "aws_lambda_permission" "allow_eventbridge" {
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.rds_to_s3_etl_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.schedule_rule.arn
+}
 
-# # CloudWatch Event Target
-# resource "aws_cloudwatch_event_target" "lambda_target" {
-#   rule      = aws_cloudwatch_event_rule.schedule_rule.name
-#   target_id = "c14-trendgineers-rds-to-s3-etl-lambda"
-#   arn       = aws_lambda_function.rds_to_s3_etl_lambda.arn
-# }
+# EventBridge Target for Lambda
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  rule      = aws_cloudwatch_event_rule.schedule_rule.name
+  target_id = "etl-lambda-daily-target"
+  arn       = aws_lambda_function.rds_to_s3_etl_lambda.arn
+}
