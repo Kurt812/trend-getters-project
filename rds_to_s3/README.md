@@ -1,4 +1,4 @@
-# Update S3
+# Update S3 with data in RDS
 
 This directory contains all the necessary code and documentation for the Extract Transform Load (ETL) pipeline used to update the long-term data stored in the S3 bucket.
 
