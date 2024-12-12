@@ -1,10 +1,16 @@
+"""Send personalised emails to subscribed users"""
 from os import environ as ENV
 import boto3
 import psycopg2
 import psycopg2.extras
+from psycopg2.extensions import cursor as Cursor
+from psycopg2.extras import RealDictRow
 from dotenv import load_dotenv
 
-def setup_connection():
+# pylint: disable=W0613
+
+
+def setup_connection() -> tuple:
     """Retrieve database connection and cursor"""
     conn = psycopg2.connect(
         user=ENV["DB_USERNAME"],
@@ -18,7 +24,7 @@ def setup_connection():
     return conn, cursor
 
 
-def fetch_keyword_differences(cursor):
+def fetch_keyword_differences(cursor: Cursor) -> RealDictRow:
     """Fetch differences in keyword mentions and match them
     with subscription thresholds and user information"""
     query = """
@@ -63,11 +69,12 @@ def fetch_keyword_differences(cursor):
     return cursor.fetchall()
 
 
-def send_email(email, message):
+def send_email(email: str, message: str) -> None:
+    """Send email to subscribed user"""
     ses_client = boto3.client("ses", region_name="eu-west-2")
-    CHARSET = "UTF-8"
+    charset = "UTF-8"
 
-    response = ses_client.send_email(
+    ses_client.send_email(
         Destination={
             "ToAddresses": [
                 email,
@@ -76,25 +83,26 @@ def send_email(email, message):
         Message={
             "Body": {
                 "Html": {
-                    "Charset": CHARSET,
+                    "Charset": charset,
                     "Data": message,
                 },
                 "Text": {
-                    "Charset": CHARSET,
-                    "Data": "There's been an update in your subscription trends. Check the dashboard for details.",
+                    "Charset": charset,
+                    "Data": """There's been an update in your subscription trends. 
+                    Check the dashboard for details.""",
                 }
             },
             "Subject": {
-                "Charset": CHARSET,
+                "Charset": charset,
                 "Data": "Trend Getter Update",
             },
         },
         Source="trainee.ridwan.hamid@sigmalabs.co.uk",
     )
-    print(response)
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: dict[str], context) -> None:
+    """Create personalised messages to send in email"""
     load_dotenv()
     conn, cursor = setup_connection()
 
@@ -111,8 +119,10 @@ def lambda_handler(event, context):
                 </div>
                 <div style="background-color: #eef; padding: 15px; border-left: 4px solid #a3333e; margin-bottom: 20px;">
                     <p>
-                        You are receiving this email because there has been significant activity in your subscription for 
-                        <strong>{notification['keyword']}</strong>. Below are the details of the recent trends.
+                        You are receiving this email because there has been significant
+                        activity in your subscription for
+                        <strong>{notification['keyword']}</strong>.
+                        Below are the details of the recent trends.
                     </p>
                 </div>
                 <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
@@ -125,23 +135,26 @@ def lambda_handler(event, context):
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="padding: 10px; border: 1px solid #ddd;">{notification['keyword']}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd;">{notification['direction']}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd;">{abs(notification['difference'])} mentions</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">
+                            {notification['keyword']}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">
+                            {notification['direction']}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">
+                            {abs(notification['difference'])} mentions</td>
                         </tr>
                     </tbody>
                 </table>
                 <div style="text-align: center; margin: 20px;">
                     <a href="https://yourdashboardlink.com" style="
-                        background-color: #a3333e; 
-                        color: white; 
-                        padding: 10px 20px; 
-                        text-decoration: none; 
-                        border-radius: 5px; 
+                        background-color: #a3333e;
+                        color: white;
+                        padding: 10px 20px;
+                        text-decoration: none;
+                        border-radius: 5px;
                         font-weight: bold;">View Your Dashboard</a>
                 </div>
                 <div style="border-top: 1px solid #ddd; margin-top: 20px; padding-top: 10px; font-size: 12px; color: #777; text-align: center;">
-                    <p>You are receiving this email as a subscriber of Trend Getter. If you no longer wish to receive updates, 
+                    <p>You are receiving this email as a subscriber of Trend Getter. If you no longer wish to receive updates,
                     <a href="https://unsubscribe-link.com" style="color: #a3333e;">unsubscribe here</a>.</p>
                     <p>&copy; 2024 Trend Getter Inc. All rights reserved.</p>
                 </div>
@@ -150,7 +163,6 @@ def lambda_handler(event, context):
         </html>
         """
         send_email(notification['email'], message)
-   
 
     cursor.close()
     conn.close()
