@@ -40,7 +40,8 @@ def submit_topic(data: dict) -> None:
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to connect to the API. Error: {e}")
 
-def find_unique_keywords(cursor):
+def find_unique_keywords(cursor: cursor) -> RealDictRow:
+"""Finds the keywords that users have subscribed to"""
     """Fetch keywords that have been subscribed to"""
     cursor.execute(
         """SELECT DISTINCT keywords_id
