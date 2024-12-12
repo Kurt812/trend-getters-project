@@ -168,5 +168,14 @@ def lambda_handler(event: dict[str], context) -> None:
     conn.close()
 
 
+def verify_email_identity():
+    ses_client = boto3.client("ses", region_name="eu-west-2")
+    response = ses_client.verify_email_identity(
+        EmailAddress="jakefit@myyahoo.com"
+    )
+    print(response)
+
+
 if __name__ == "__main__":
+    # verify_email_identity()
     lambda_handler(None, None)
