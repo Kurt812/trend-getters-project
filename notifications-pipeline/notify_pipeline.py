@@ -6,7 +6,9 @@ from os import environ as ENV
 import requests
 from dotenv import load_dotenv
 import psycopg2
+import logging
 from psycopg2.extras import RealDictCursor
+from psycopg2.extensions import cursor
 
 load_dotenv()
 
