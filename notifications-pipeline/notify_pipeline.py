@@ -33,12 +33,12 @@ def submit_topic(data: dict) -> None:
     try:
         response = requests.post(API_ENDPOINT, json=data, timeout=1000)
         if response.status_code == 200:
-            print("✅ Topic submitted successfully!")
+           logging.info("✅ Topic submitted successfully!")
         else:
-            print(f"""Error: {response.json().get(
+            logging.error(f"""Error: {response.json().get(
                 'message', 'Unknown error')}""")
     except requests.exceptions.RequestException as e:
-        print(f"Failed to connect to the API. Error: {e}")
+        logging.error(f"Failed to connect to the API. Error: {e}")
 
 def find_unique_keywords(cursor):
     """Fetch keywords that have been subscribed to"""
