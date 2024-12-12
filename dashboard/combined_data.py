@@ -10,13 +10,23 @@ from dotenv import load_dotenv
 
 def get_connection():
     """Function to connect to RDS."""
-    return psycopg2.connect(
-        host=ENV["DB_HOST"],
-        port=ENV["DB_PORT"],
-        database=ENV["DB_NAME"],
-        user=ENV["DB_USERNAME"],
-        password=ENV["DB_PASSWORD"]
-    )
+    try:
+        conn = psycopg2.connect(
+            host=ENV["DB_HOST"],
+            port=ENV["DB_PORT"],
+            database=ENV["DB_NAME"],
+            user=ENV["DB_USERNAME"],
+            password=ENV["DB_PASSWORD"]
+        )
+    except psycopg2.OperationalError as e:
+        logging.error(
+            "Operational error while connecting to the database: %s", e)
+        raise
+    except Exception as e:
+        logging.error("Error connecting to database: %s", e)
+        raise
+    logging.info("Connection successfully established to database.")
+    return conn
 
 
 def download_csv_from_s3_to_dataframe(bucket_name, folder_name, file_name) -> pd.DataFrame:
@@ -44,7 +54,8 @@ def download_csv_from_s3_to_dataframe(bucket_name, folder_name, file_name) -> pd
 
 
 def fetch_keyword_recordings_as_dataframe():
-
+    """Function to get the data from the keyword recordings table and return as a dataframe."""
+    connection = None
     try:
         connection = get_connection()
 
@@ -82,5 +93,5 @@ def main_combine() -> pd.DataFrame:
         logging.info("Combined DataFrame from S3 created successfully.")
         return combined_df
     else:
-        logging.ERROR("Could not combine DataFrames due to missing data.")
+        logging.error("Could not combine DataFrames due to missing data.")
         return None
