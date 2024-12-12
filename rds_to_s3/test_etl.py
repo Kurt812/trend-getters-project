@@ -303,8 +303,7 @@ def test_successful_upload_to_s3(mock_s3_conn, caplog):
     with caplog.at_level(logging.INFO):
         upload_to_s3(bucket_name, file_name, object_name)
 
-    assert f'Uploaded {
-        file_name} to s3://{bucket_name}/{object_name}' in caplog.text
+    assert f"Uploaded {file_name} to s3://{bucket_name}/{object_name}" in caplog.text
     mock_s3.upload_file.assert_called_once()
 
 
@@ -354,8 +353,7 @@ def test_upload_s3_clienterror(mock_s3_conn, caplog):
     mock_s3.upload_file.assert_called_once_with(
         f'/tmp/{file_name}', bucket_name, object_name)
 
-    assert f'Failed to upload {
-        file_name} to S3 (AWS Client Error): ' in caplog.text
+    assert f'Failed to upload {file_name} to S3 (AWS Client Error): ' in caplog.text
 
 
 @patch('etl_lambda.s3_connection')
@@ -373,8 +371,7 @@ def test_upload_s3_exception(mock_s3_conn, caplog):
     mock_s3.upload_file.assert_called_once_with(
         f'/tmp/{file_name}', 'test_bucket', 'object_name')
 
-    assert f'Unexpected error while uploading {
-        file_name} to S3: ' in caplog.text
+    assert f'Unexpected error while uploading {file_name} to S3: ' in caplog.text
 
 
 @patch('os.path.exists', return_value=True)
@@ -421,8 +418,7 @@ def test_delete_local_file_permissionerror(mock_remove, mock_exists, caplog):
     mock_exists.assert_called_once_with(f'/tmp/{file_name}')
     mock_remove.assert_called_once()
 
-    assert f'Permission denied while trying to delete /tmp/{
-        file_name}: ' in caplog.text
+    assert f'Permission denied while trying to delete /tmp/{file_name}: ' in caplog.text
 
 
 @patch('etl_lambda.delete_local_file')

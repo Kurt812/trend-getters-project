@@ -11,27 +11,21 @@ from transform import (get_connection, get_cursor,
                        ensure_keywords_in_db, keyword_matching, extract_keywords_from_csv, main)
 
 
-@pytest.fixture()
-def configs():
-    return {
-        "DB_USERNAME": "user",
-        "DB_PASSWORD": "password",
-        "DB_HOST": "localhost",
-        "DB_PORT": 1234,
-        "DB_NAME": "name",
-        "AWS_ACCESS_KEY_ID": "fake_access_key",
-        "AWS_SECRET_ACCESS_KEY": "fake_secret_key"
-    }
-
-
 @patch('transform.psycopg2.connect')
-def test_postgres_connection_success(mock_connect, configs, caplog):
+@patch.dict('os.environ', {
+    "DB_USERNAME": "user",
+    "DB_PASSWORD": "password",
+    "DB_HOST": "localhost",
+    "DB_PORT": "1234",
+    "DB_NAME": "name"
+})
+def test_postgres_connection_success(mock_connect, caplog):
     """Test successful connection to PostgreSQL using patch and MagicMock."""
 
     mock_conn = MagicMock()
     mock_connect.return_value = mock_conn
     with caplog.at_level('INFO'):
-        conn = get_connection(configs)
+        conn = get_connection()
 
     mock_connect.assert_called_once_with(
         user="user", password='password', host="localhost", port=1234, database="name")
@@ -41,7 +35,7 @@ def test_postgres_connection_success(mock_connect, configs, caplog):
 
 
 @patch('transform.psycopg2.connect')
-def test_postgres_connection_operational_error(mock_connect, configs, caplog):
+def test_postgres_connection_operational_error(mock_connect, caplog):
     """Test unsuccessful connection to PostgreSQL due to OperationalError"""
 
     mock_conn = MagicMock()
@@ -49,7 +43,7 @@ def test_postgres_connection_operational_error(mock_connect, configs, caplog):
     mock_connect.side_effect = psycopg2.OperationalError()
 
     with pytest.raises(psycopg2.OperationalError):
-        get_connection(configs)
+        get_connection()
     assert 'Operational error while connecting to the database:' in caplog.text
     for record in caplog.records:
         assert record.levelname == 'ERROR'
@@ -178,7 +172,7 @@ def test_extract_keywords_exception(mock_open, mock_isfile, caplog):
 @patch('transform.get_cursor')
 @patch('transform.ensure_keywords_in_db')
 @patch('transform.keyword_matching')
-def test_main_success(mock_keyword_match, mock_ensure, mock_get_curs, mock_get_conn, configs, caplog):
+def test_main_success(mock_keyword_match, mock_ensure, mock_get_curs, mock_get_conn, caplog):
     """Test that the main function functions well and returns expected dataframe."""
 
     mock_df = pd.DataFrame({

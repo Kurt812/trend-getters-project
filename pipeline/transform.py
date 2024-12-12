@@ -28,7 +28,7 @@ def get_connection() -> conn:
             user=ENV["DB_USERNAME"],
             password=ENV["DB_PASSWORD"],
             host=ENV["DB_HOST"],
-            port=ENV["DB_PORT"],
+            port=int(ENV["DB_PORT"]),
             database=ENV["DB_NAME"]
         )
     except psycopg2.OperationalError as e:
