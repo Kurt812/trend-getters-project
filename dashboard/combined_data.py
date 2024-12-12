@@ -84,7 +84,3 @@ def main_combine() -> pd.DataFrame:
     else:
         logging.ERROR("Could not combine DataFrames due to missing data.")
         return None
-
-
-if __name__ == "__main__":
-    print(main_combine())
