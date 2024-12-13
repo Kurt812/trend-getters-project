@@ -31,6 +31,9 @@
       <a href="files-explained">Files Explained</a>
     </li>
     <li>
+      <a href="Improvements">Improvements</a>
+    </li>
+    <li>
       <a href="#developers-">Developers</a>
     </li>
   </ol>
@@ -136,6 +139,12 @@ These files are found in this repository:
 [Python.com]: https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54
 [Python-url]: https://www.python.org/
 
+
+## Improvements
+Future improvements on this project include:
+- **Security**: using data encryption and password implementation in order to login to user's dashboard.
+- **Data Sources**: including a wider variety of data sources such as Reddit and TikTok in order to gain a wider insight into trends.
+- **Responsiveness**: implementing services such as AWS Kinesis to improve API responsiveness by enabling real-time data streaming and processing for larger data streams.
 
 ## Developers 👨🏽‍💻👩🏽‍💻
 This project was developed by the following contributors:
