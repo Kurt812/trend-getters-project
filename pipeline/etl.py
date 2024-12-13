@@ -13,5 +13,5 @@ def main(topic: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    topic = ['dark']
+    topic = ['vegan protein']
     main(topic)
