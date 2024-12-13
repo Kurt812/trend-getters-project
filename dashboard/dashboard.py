@@ -2,6 +2,8 @@
 
 # pylint: disable=line-too-long
 from os import environ as ENV
+from flask import cli
+from datetime import datetime, timedelta
 import pandas as pd
 import altair as alt
 from dotenv import load_dotenv
@@ -350,195 +352,8 @@ def display_center_message() -> None:
     )
 
 
-def main() -> None:
-    """Main function to render the Streamlit app"""
-
-    st.set_page_config(page_title="Trend Getter",
-                       page_icon=":chart_with_upwards_trend:", layout="wide")
-
-    st.markdown(
-        """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
-
-    html, body, div, span, appview-container, header, footer, [class*="css"] {
-        font-family: 'League Spartan', sans-serif;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True
-    )
-    left_title, logo = st.columns([1, 1])
-    with left_title:
-        st.markdown(
-            """
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
-
-        /* Apply the font globally */
-        html, body, [class*="css"] {
-            font-family: 'League Spartan', sans-serif;
-        }
-
-        .title {
-            text-align: left;
-            font-size: 50px;
-            margin-top: 50px;
-            margin-bottom: 20px
-            font-weight: bolder;
-        }
-
-        </style>
-        """,
-            unsafe_allow_html=True
-        )
-
-        st.markdown("""
-             <div></div>       
-            <div class="title">Trend Getter</div>
-        
-        """, unsafe_allow_html=True)
-    with logo:
-        st.markdown(
-            """
-        <style>
-        .top-right-image {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 300px;
-            margin-bottom: 500px;
-        }
-        </style>
-        <img src="https://raw.githubusercontent.com/Kurt812/trend-getters-project/development/images/logo-no-writing.png" class="top-right-image" alt="Logo">
-
-        """,
-            unsafe_allow_html=True)
-
-    _, cursor = get_connection()
-    if "user_verified" not in st.session_state:
-        st.session_state["user_verified"] = False
-
-    if not st.session_state["user_verified"]:
-        st.write("Submit your details to track trends.")
-        user_verification()
-
-    else:
-        existing_keywords = topic_and_subscription_ui()
-        if st.session_state.get("is_new_user", False) and not existing_keywords:
-            st.write('Over the last 24 hours:')
-            display_new_user_stats(cursor)
-
-        else:
-            selected_keywords = get_keyword_filter(existing_keywords)
-            combined_data = main_combine()
-            filtered_data_list = filter_by_keyword(
-                selected_keywords, combined_data)
-
-            filtered_data = pd.concat(filtered_data_list)
-            data_12 = get_percentage_change_mentions_sentiment(
-                existing_keywords, combined_data)
-
-            display_users_page_visuals_layer_1(
-                filtered_data, data_12, selected_keywords, existing_keywords)
-            display_users_page_visuals_layer_2(
-                filtered_data, data_12, selected_keywords, existing_keywords)
-            display_user_page_visuals_networks(selected_keywords, cursor)
-
-
 def display_users_page_visuals_layer_1(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
     """Function to show visualisations of user's submitted keywords once logged in."""
-
-    if len(selected_keywords) <= 2:
-        left, right_1, right_2 = st.columns([4, 1, 1])
-
-        if len(selected_keywords) == 0:
-            last_submitted_keyword = existing_keywords[-1]
-            keyword_id = fetch_keyword_id(
-                last_submitted_keyword).get('keywords_id')
-            archival_data = archival_data[archival_data['keywords_id']
-                                          == keyword_id]
-
-            data = data_upto_12hrs[data_upto_12hrs['keyword']
-                                   == last_submitted_keyword]
-
-            with left:
-                st.markdown(
-                    f'Your last submitted word was: **"{last_submitted_keyword}"**')
-                chart = plot_total_mentions(
-                    [last_submitted_keyword], archival_data)
-                st.altair_chart(chart, use_container_width=True)
-            with right_1:
-                st.write("\n")
-                get_total_mentions_change_metric(data)
-            with right_2:
-                st.write("\n")
-                get_sentiment_overall_change_metric(data)
-        elif len(selected_keywords) == 1:
-            data = data_upto_12hrs[data_upto_12hrs['keyword']
-                                   == existing_keywords[0]]
-            with left:
-                chart = plot_total_mentions(selected_keywords, archival_data)
-                st.altair_chart(chart, use_container_width=True)
-            with right_1:
-                st.write("\n")
-                get_total_mentions_change_metric(data)
-            with right_2:
-                st.write("\n")
-                get_sentiment_overall_change_metric(data)
-        elif len(selected_keywords) == 2:
-            data_1 = data_upto_12hrs[data_upto_12hrs['keyword']
-                                     == existing_keywords[0]]
-            data_2 = data_upto_12hrs[data_upto_12hrs['keyword']
-                                     == existing_keywords[1]]
-            with left:
-                chart = plot_total_mentions(selected_keywords, archival_data)
-                st.altair_chart(chart, use_container_width=True)
-            with right_1:
-                st.markdown(
-                    f'**{existing_keywords[0].title()}**')
-
-                get_total_mentions_change_metric(data_1)
-                get_sentiment_overall_change_metric(data_1)
-            with right_2:
-                st.markdown(
-                    f'**{existing_keywords[1].title()}**')
-                get_total_mentions_change_metric(data_2)
-                get_sentiment_overall_change_metric(data_2)
-
-    else:
-        left, right, = st.columns([4, 2])
-        with left:
-            chart = plot_total_mentions(selected_keywords, archival_data)
-            st.altair_chart(chart, use_container_width=True)
-
-        with right:
-            st.markdown("Since data collection began: ")
-            table_data = add_keyword_column(selected_keywords, archival_data)
-            result = table_data.groupby('keyword').apply(
-                lambda group: pd.Series({
-                    'total_mentions': round(group['total_mentions'].sum(), 2),
-                    'average_sentiment': round(
-                        (group['avg_sentiment'] * group['total_mentions']).sum() /
-                        group['total_mentions'].sum(), 4)
-                })
-            )
-            result['average_sentiment'] = result['average_sentiment'].apply(
-                lambda x: f"{x:.2f}".rstrip('0').rstrip('.'))
-            result['total_mentions'] = result['total_mentions'].apply(
-                lambda x: f"{x:.0f}" if x.is_integer() else x)
-
-            result.rename(columns={'total_mentions': 'Total Mentions',
-                                   'average_sentiment': 'Average Sentiment'}, inplace=True)
-
-            st.table(result)
-
-
-def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
-    """Second layer of metrics and graphs to be displayed."""
-
-    left, right = st.columns([2, 4])
-
     if len(selected_keywords) == 0:
         last_submitted_keyword = existing_keywords[-1]
         keyword_id = fetch_keyword_id(
@@ -548,100 +363,190 @@ def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12
 
         data = data_upto_12hrs[data_upto_12hrs['keyword']
                                == last_submitted_keyword]
+        st.markdown(
+            f'Your last submitted word was: **"{last_submitted_keyword}"**')
+        chart = plot_total_mentions(
+            [last_submitted_keyword], archival_data)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        chart = plot_total_mentions(selected_keywords, archival_data)
+        st.altair_chart(chart, use_container_width=True)
 
-        with left:
-            st.markdown(
-                f"In the next hour, we predict the total mentions of **{last_submitted_keyword}** to be:")
-            prediction = main_predict(last_submitted_keyword)
 
-            data = archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'] ==
-                                     keyword_id]
+def display_users_page_visuals_layer_2(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
+    """Second layer of metrics and graphs to be displayed."""
 
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-
-            st.metric(label='', value=prediction, delta=(
-                prediction-first_total_mentions))
-        with right:
-            chart = plot_avg_sentiment_over_time(
-                [last_submitted_keyword], archival_data)
-            st.altair_chart(chart, use_container_width=True)
-    elif len(selected_keywords) == 1:
+    if len(selected_keywords) == 0:
+        last_submitted_keyword = existing_keywords[-1]
         keyword_id = fetch_keyword_id(
-            selected_keywords[0]).get('keywords_id')
+            last_submitted_keyword).get('keywords_id')
         archival_data = archival_data[archival_data['keywords_id']
                                       == keyword_id]
 
-        data = data_upto_12hrs[data_upto_12hrs['keyword']
-                               == selected_keywords[0]]
-
-        with left:
-            st.markdown(
-                f"In the next hour, we predict the total mentions of **{selected_keywords[0]}** to be:")
-            prediction = main_predict(selected_keywords[0])
-            data = archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'] ==
-                                     keyword_id]
-
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            st.metric(label='', value=prediction, delta=(
-                prediction-first_total_mentions))
-        with right:
-            chart = plot_avg_sentiment_over_time(
-                [selected_keywords[0]], archival_data)
-            st.altair_chart(chart, use_container_width=True)
+        chart = plot_avg_sentiment_over_time(
+            [last_submitted_keyword], archival_data)
+        st.altair_chart(chart, use_container_width=True)
     else:
-        with left:
-            keyword_predictions_list = []
-            keyword_id_list = []
-            for keyword in selected_keywords:
-                keyword_predictions_list.append(
-                    {'Keyword': keyword, 'Prediction': f"{main_predict(keyword):.2f}"})
-                keyword_id_list.append(
-                    fetch_keyword_id(keyword)['keywords_id'])
-
-            st.markdown(
-                "In the next hour, we predict the total mentions of your keywords to be:")
-
-            table_data = pd.DataFrame(
-                keyword_predictions_list)
-
-            data = archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'].isin(keyword_id_list)]
-
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[:(len(selected_keywords))].to_list(
-            )
-            table_data['Mentions in the last Hour'] = first_total_mentions
-            table_data['Mentions in the last Hour'] = table_data['Mentions in the last Hour']
-            table_data = table_data[['Keyword',
-                                     'Mentions in the last Hour', 'Prediction']]
-
-            st.table(table_data.set_index(['Keyword']))
-
-        with right:
-            chart = plot_avg_sentiment_over_time(
-                selected_keywords, archival_data)
-            st.altair_chart(chart, use_container_width=True)
+        chart = plot_avg_sentiment_over_time(selected_keywords, archival_data)
+        st.altair_chart(chart, use_container_width=True)
 
 
-def display_user_page_visuals_networks(selected_keywords: list, cursor: cursor) -> None:
-    """Display network graphs if only one or 2 keywords are present."""
-    if len(selected_keywords) == 1:
-        text, middle, _ = st.columns([1, 5, 1])
-        with text:
-            st.write("Explore the related terms: ")
-        with middle:
-            network_graph(selected_keywords[0], cursor)
-    if len(selected_keywords) == 2:
-        st.write("Explore the related terms:")
-        graph1, _, graph2 = st.columns([7, 1, 7])
-        with graph1:
-            network_graph(selected_keywords[0], cursor)
-        with graph2:
-            network_graph(selected_keywords[1], cursor)
+def round_up_to_next_hour(dt: datetime) -> str:
+    """Rounds a datetime object up to the next hour."""
+    next_hour = dt.replace(
+        minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    return next_hour.strftime("%H:%M")
+
+
+def display_keyword_insights(keyword: str, archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, font_size: int) -> None:
+    """Displays insights for a specific keyword."""
+    st.markdown(
+        f'<p style="font-size:{font_size}px;"><b><i>{
+            keyword.title()}</i></b> Insights:</p>',
+        unsafe_allow_html=True
+    )
+    keyword_id = fetch_keyword_id(keyword).get('keywords_id')
+    keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+    keyword_data = data_upto_12hrs[data_upto_12hrs['keyword'] == keyword]
+
+    _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
+    with left:
+        get_total_mentions_change_metric(keyword_data)
+    with right:
+        get_sentiment_overall_change_metric(keyword_data)
+    with middle:
+        prediction = main_predict(keyword)
+        sorted_data = keyword_archival_data.sort_values(
+            by=['date_and_hour'], ascending=False)
+        first_total_mentions = sorted_data['total_mentions'].iloc[0]
+        next_hour = round_up_to_next_hour(datetime.now())
+        st.metric(
+            label=f'Predicted Mentions for {next_hour}',
+            value=prediction,
+            delta=f'{round((
+                prediction-first_total_mentions), 2)} mentions'
+        )
+
+
+def display_user_page_visuals_layer_3(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
+    """Function to display 3rd layer of user visuals including predictions and averages across last 12hrs."""
+
+    if len(selected_keywords) == 0:
+        last_submitted_keyword = existing_keywords[-1]
+        display_keyword_insights(
+            last_submitted_keyword, archival_data, data_upto_12hrs, font_size=24)
+
+    elif len(selected_keywords) == 1:
+        display_keyword_insights(
+            selected_keywords[0], archival_data, data_upto_12hrs, font_size=24)
+
+    elif len(selected_keywords) == 2:
+        for keyword in selected_keywords:
+            display_keyword_insights(
+                keyword, archival_data, data_upto_12hrs, font_size=24)
+
+    elif len(selected_keywords) == 3:
+        _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
+        for i, column in enumerate([left, middle, right]):
+            with column:
+                st.markdown(
+                    f'<p style="font-size:24px;"><b><i>{
+                        selected_keywords[i].title()}</i></b> Insights:</p>',
+                    unsafe_allow_html=True
+                )
+                keyword_id = fetch_keyword_id(
+                    selected_keywords[i]).get('keywords_id')
+                keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+                keyword_data = data_upto_12hrs[data_upto_12hrs['keyword']
+                                               == selected_keywords[i]]
+                get_total_mentions_change_metric(keyword_data)
+                get_sentiment_overall_change_metric(keyword_data)
+                prediction = main_predict(selected_keywords[i])
+                sorted_data = keyword_archival_data.sort_values(
+                    by=['date_and_hour'], ascending=False)
+                first_total_mentions = sorted_data['total_mentions'].iloc[0]
+                next_hour = round_up_to_next_hour(datetime.now())
+                st.metric(
+                    label=f'Predicted Mentions for {next_hour}',
+                    value=prediction,
+                    delta=f'{round((
+                        prediction-first_total_mentions), 2)} mentions'
+                )
+
+    elif len(selected_keywords) == 4:
+        _, left, _, middle_left, middle_right, _, right, _ = st.columns(
+            [0.5, 2, 1, 2, 2, 1, 2, 0.5])
+        for i, column in enumerate([left, middle_left, middle_right, right]):
+            with column:
+                st.markdown(
+                    f'<p style="font-size:20px;"><b><i>{
+                        selected_keywords[i].title()}</i></b> Insights:</p>',
+                    unsafe_allow_html=True
+                )
+                keyword_id = fetch_keyword_id(
+                    selected_keywords[i]).get('keywords_id')
+                keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+                keyword_data = data_upto_12hrs[data_upto_12hrs['keyword']
+                                               == selected_keywords[i]]
+                get_total_mentions_change_metric(keyword_data)
+                get_sentiment_overall_change_metric(keyword_data)
+                prediction = main_predict(selected_keywords[i])
+                sorted_data = keyword_archival_data.sort_values(
+                    by=['date_and_hour'], ascending=False)
+                first_total_mentions = sorted_data['total_mentions'].iloc[0]
+                next_hour = round_up_to_next_hour(datetime.now())
+                st.metric(
+                    label=f'Predicted Mentions for {next_hour}',
+                    value=prediction,
+                    delta=f'{round((
+                        prediction-first_total_mentions), 2)} mentions'
+                )
+
+    else:
+        left, middle_left, middle, middle_right, right = st.columns([
+            1, 1, 1, 1, 1])
+        for i, column in enumerate([left, middle_left, middle, middle_right, right]):
+            with column:
+                st.markdown(
+                    f'<p style="font-size:18px;"><b><i>{
+                        selected_keywords[i].title()}</i></b> Insights:</p>',
+                    unsafe_allow_html=True
+                )
+                keyword_id = fetch_keyword_id(
+                    selected_keywords[i]).get('keywords_id')
+                keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+                keyword_data = data_upto_12hrs[data_upto_12hrs['keyword']
+                                               == selected_keywords[i]]
+                get_total_mentions_change_metric(keyword_data)
+                get_sentiment_overall_change_metric(keyword_data)
+                prediction = main_predict(selected_keywords[i])
+                sorted_data = keyword_archival_data.sort_values(
+                    by=['date_and_hour'], ascending=False)
+                first_total_mentions = sorted_data['total_mentions'].iloc[0]
+                next_hour = round_up_to_next_hour(datetime.now())
+                st.metric(
+                    label=f'Predicted Mentions for {next_hour}',
+                    value=prediction,
+                    delta=f'{round((
+                        prediction-first_total_mentions), 2)} mentions'
+                )
+
+
+def get_metric_columns(keyword: list, data_upto_12hrs: pd.DataFrame, archival_data: pd.DataFrame) -> None:
+    """Function for creating the metric columns including sentiment over the last 12 hrs and prediction."""
+    get_total_mentions_change_metric(data_upto_12hrs)
+    get_sentiment_overall_change_metric(data_upto_12hrs)
+    prediction = main_predict(keyword)
+    keyword_id = fetch_keyword_id(
+        keyword).get('keywords_id')
+    data = archival_data.sort_values(
+        by=['date_and_hour'], ascending=False)
+    only_keyword_data = data[data['keywords_id'] ==
+                             keyword_id]
+    first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
+    next_hour = round_up_to_next_hour(datetime.now())
+    st.metric(label=f'Predicted Mentions for {next_hour}', value=prediction, delta=f'{(
+        prediction-first_total_mentions)} mentions')
 
 
 def network_graph(keyword: str, cursor: cursor) -> agraph:
@@ -690,7 +595,57 @@ def network_graph(keyword: str, cursor: cursor) -> agraph:
         hierarchical=False,
     )
 
-    return agraph(nodes=nodes, edges=edges, config=config)
+    clicked_node = agraph(nodes=nodes, edges=edges, config=config)
+    return clicked_node
+
+
+def getting_new_related_terms(data: dict) -> None:
+    """Submit topic details to the API"""
+    try:
+        response = requests.post(API_ENDPOINT, json=data, timeout=1000)
+        if response.status_code == 200:
+            st.success("✅ Topic submitted successfully!")
+
+        else:
+            st.error(f"""Error: {response.json().get(
+                'message', 'Unknown error')}""")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to connect to the API. Error: {e}")
+
+
+def display_user_page_visuals_networks(selected_keywords: list, cursor):
+    """Display network graphs if only one or two keywords are present."""
+    if len(selected_keywords) == 1:
+        text, middle, _ = st.columns([1, 5, 1])
+        with text:
+            st.markdown(
+                '<p style="font-size:24px;">Explore the related terms:</p>', unsafe_allow_html=True)
+
+        with middle:
+            clicked_node = network_graph(selected_keywords[0], cursor)
+            if clicked_node:
+                if 'clicked_nodes' not in st.session_state:
+                    st.session_state.clicked_nodes = []
+
+                st.session_state.clicked_nodes.append(clicked_node)
+
+                most_recent_clicked_node = st.session_state.get(
+                    'clicked_nodes', [])[-1]
+                st.write(most_recent_clicked_node)
+
+    elif len(selected_keywords) == 2:
+        st.markdown(
+            '<p style="font-size:24px;">Explore the related terms:</p>', unsafe_allow_html=True)
+
+        graph1, _, graph2 = st.columns([7, 1, 7])
+        with graph1:
+            clicked_node1 = network_graph(selected_keywords[0], cursor)
+            if clicked_node1:
+                st.write(f"From graph 1, you clicked on: {clicked_node1[0]}")
+        with graph2:
+            clicked_node2 = network_graph(selected_keywords[1], cursor)
+            if clicked_node2:
+                st.write(f"From graph 2, you clicked on: {clicked_node2[0]}")
 
 
 def display_new_user_stats(cursor: cursor) -> None:
@@ -796,15 +751,15 @@ def plot_total_mentions(keywords: list, data: pd.DataFrame) -> alt.Chart:
     filtered_data = add_keyword_column(keywords, data)
 
     chart = alt.Chart(filtered_data, title='Mentions Over Time').mark_line().encode(
-        x=alt.X('date_and_hour:T', title='Date',
-                axis=alt.Axis(format='%d-%m-%Y')),
+        x=alt.X('6_hour_block:T', title='Date',
+                axis=alt.Axis(format='%I%p (%d-%m)')),
         y=alt.Y('total_mentions:Q', title='Total Mentions'),
         color=alt.Color('keyword:N', title='Keyword:',
                         scale=alt.Scale(range=COLOUR_PALETTE)),
         tooltip=[alt.Tooltip('keyword:N', title='Keyword'),
                  alt.Tooltip('total_mentions:Q', title='Total Mentions'),
-                 alt.Tooltip('date_and_hour:T', title='Date')]
-    ).properties(width=800, height=400).interactive()
+                 alt.Tooltip('6_hour_block:T', title='Date')]
+    ).properties(width=800, height=400).configure_title(fontSize=24).interactive()
     return chart
 
 
@@ -813,15 +768,15 @@ def plot_avg_sentiment_over_time(keywords: list, data: pd.DataFrame) -> alt.Char
     filtered_data = add_keyword_column(keywords, data)
 
     chart = alt.Chart(filtered_data, title='Average Sentiment Over Time').mark_line().encode(
-        x=alt.X('date_and_hour:T', title='Date',
-                axis=alt.Axis(format='%d-%m-%Y')),
+        x=alt.X('6_hour_block:T', title='Time',
+                axis=alt.Axis(format='%I%p (%d-%m)')),
         y=alt.Y('avg_sentiment:Q', title='Average Sentiment'),
         color=alt.Color('keyword:N', title='Keyword:',
                         scale=alt.Scale(range=COLOUR_PALETTE)),
         tooltip=[alt.Tooltip('keyword:N', title='Keyword'),
                  alt.Tooltip('avg_sentiment:Q', title='Average Sentiment'),
-                 alt.Tooltip('date_and_hour:T', title='Date')]
-    ).properties(width=800, height=400).interactive()
+                 alt.Tooltip('6_hour_block:T', title='6-hour time block')]
+    ).properties(width=800, height=400).configure_title(fontSize=24).interactive()
 
     return chart
 
@@ -857,6 +812,117 @@ def get_total_mentions_change_metric(data: pd.DataFrame) -> None:
             st.write("Data:", data)
     else:
         st.info("No data available to calculate mentions change.")
+
+
+def main() -> None:
+    """Main function to render the Streamlit app"""
+
+    st.set_page_config(page_title="Trend Getter",
+                       page_icon=":chart_with_upwards_trend:", layout="wide")
+
+    st.markdown(
+        """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
+
+    html, body, div, span, appview-container, header, footer, [class*="css"] {
+        font-family: 'League Spartan', sans-serif;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True
+    )
+    left_title, logo = st.columns([1, 1])
+    with left_title:
+        st.markdown(
+            """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
+
+        /* Apply the font globally */
+        html, body, [class*="css"] {
+            font-family: 'League Spartan', sans-serif;
+        }
+
+        .title {
+            text-align: left;
+            font-size: 50px;
+            margin-top: 50px;
+            margin-bottom: 20px
+            font-weight: bolder;
+        }
+
+        </style>
+        """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("""
+             <div></div>
+            <div class="title">Trend Getter</div>
+
+        """, unsafe_allow_html=True)
+    with logo:
+        st.markdown(
+            """
+        <style>
+        .top-right-image {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            margin-bottom: 500px;
+        }
+        </style>
+        <img src="https://raw.githubusercontent.com/Kurt812/trend-getters-project/development/images/logo-no-writing.png" class="top-right-image" alt="Logo">
+
+        """,
+            unsafe_allow_html=True)
+
+    _, cursor = get_connection()
+    if "user_verified" not in st.session_state:
+        st.session_state["user_verified"] = False
+
+    if not st.session_state["user_verified"]:
+        st.write("Submit your details to track trends.")
+        user_verification()
+
+    else:
+        existing_keywords = topic_and_subscription_ui()
+        if st.session_state.get("is_new_user", False) and not existing_keywords:
+            st.write('Over the last 24 hours:')
+            display_new_user_stats(cursor)
+        else:
+            selected_keywords = get_keyword_filter(existing_keywords)
+            st.markdown(
+                '<hr style="width: 100%; height: 2px; color: #291f1e; background-color: #291f1e; margin-top:0;"/>', unsafe_allow_html=True)
+
+            # Organise data for different visualisations
+            combined_data = main_combine()
+            filtered_data_list = filter_by_keyword(
+                selected_keywords, combined_data)
+            filtered_data = pd.concat(filtered_data_list)
+            data_12 = get_percentage_change_mentions_sentiment(
+                existing_keywords, combined_data)
+            filtered_data['date_and_hour'] = pd.to_datetime(
+                filtered_data['date_and_hour'])
+            filtered_data['6_hour_block'] = filtered_data['date_and_hour'].dt.floor(
+                '6H')
+            grouped_df = filtered_data.groupby(['keywords_id', '6_hour_block'], as_index=False).agg({
+                'total_mentions': 'mean',
+                'avg_sentiment': 'mean'
+            })
+            grouped_df['total_mentions'] = grouped_df['total_mentions'].round(
+                2)
+            grouped_df['avg_sentiment'] = grouped_df['avg_sentiment'].round(2)
+
+            display_users_page_visuals_layer_1(
+                grouped_df, data_12, selected_keywords, existing_keywords)
+            display_users_page_visuals_layer_2(
+                grouped_df, data_12, selected_keywords, existing_keywords)
+            display_user_page_visuals_layer_3(
+                filtered_data, data_12, selected_keywords, existing_keywords)
+            display_user_page_visuals_networks(selected_keywords, cursor)
 
 
 if __name__ == "__main__":

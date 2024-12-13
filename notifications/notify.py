@@ -166,7 +166,3 @@ def lambda_handler(event: dict[str], context) -> None:
 
     cursor.close()
     conn.close()
-
-
-if __name__ == "__main__":
-    lambda_handler(None, None)
