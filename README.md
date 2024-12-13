@@ -49,9 +49,6 @@
 
 ![ERD Diagram](/images/ERD-diagram.png)
 
-#### Dashboard Wireframe
-
-![Dashboard Wireframe](/images/dashboard_wireframe.png)
 
 ### Built With
  [![Python][Python.com]][Python-url]
