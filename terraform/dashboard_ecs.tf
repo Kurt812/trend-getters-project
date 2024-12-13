@@ -37,7 +37,6 @@ resource "aws_iam_policy" "dashboard_ecs_service_rds_policy" {
             "arn:aws:rds:eu-west-2:129033205317:db:c14-trend-getter-db"
         ]
       },
-      # Allow ECS tasks to read from the specified S3 bucket
       {
         Effect   : "Allow",
         Action   : [
@@ -72,7 +71,7 @@ resource "aws_ecs_task_definition" "c14_trendgineers_dashboard" {
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "1024"
-  task_role_arn            = aws_iam_role.dashboard_ecs_service_role.arn # keep
+  task_role_arn            = aws_iam_role.dashboard_ecs_service_role.arn 
   execution_role_arn       = data.aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
@@ -133,7 +132,6 @@ resource "aws_security_group" "dashboard_ecs_service_sg" {
     cidr_blocks = ["0.0.0.0/0"] 
   }
 
-  # Egress rule for S3 (HTTPS)
   egress {
     from_port   = 443
     to_port     = 443
@@ -141,9 +139,8 @@ resource "aws_security_group" "dashboard_ecs_service_sg" {
     cidr_blocks = ["0.0.0.0/0"] 
   }
 
-  # Egress rule for RDS
   egress {
-    from_port   = 5432 # Replace with your RDS port if different
+    from_port   = 5432 
     to_port     = 5432
     protocol    = "tcp"
     security_groups = [aws_security_group.rds_sg.id] 
