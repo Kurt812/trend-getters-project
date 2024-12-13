@@ -846,14 +846,14 @@ def plot_total_mentions(keywords: list, data: pd.DataFrame) -> alt.Chart:
     filtered_data = add_keyword_column(keywords, data)
 
     chart = alt.Chart(filtered_data, title='Mentions Over Time').mark_line().encode(
-        x=alt.X('date_and_hour:T', title='Date',
-                axis=alt.Axis(format='%d-%m-%Y')),
+        x=alt.X('6_hour_block:T', title='Date',
+                axis=alt.Axis(format='%I%p (%d-%m)')),
         y=alt.Y('total_mentions:Q', title='Total Mentions'),
         color=alt.Color('keyword:N', title='Keyword:',
                         scale=alt.Scale(range=COLOUR_PALETTE)),
         tooltip=[alt.Tooltip('keyword:N', title='Keyword'),
                  alt.Tooltip('total_mentions:Q', title='Total Mentions'),
-                 alt.Tooltip('date_and_hour:T', title='Date')]
+                 alt.Tooltip('6_hour_block:T', title='Date')]
     ).properties(width=800, height=400).configure_title(fontSize=24).interactive()
     return chart
 
@@ -863,14 +863,14 @@ def plot_avg_sentiment_over_time(keywords: list, data: pd.DataFrame) -> alt.Char
     filtered_data = add_keyword_column(keywords, data)
 
     chart = alt.Chart(filtered_data, title='Average Sentiment Over Time').mark_line().encode(
-        x=alt.X('date_and_hour:T', title='Date',
-                axis=alt.Axis(format='%d-%m-%Y')),
+        x=alt.X('6_hour_block:T', title='Time',
+                axis=alt.Axis(format='%I%p (%d-%m)')),
         y=alt.Y('avg_sentiment:Q', title='Average Sentiment'),
         color=alt.Color('keyword:N', title='Keyword:',
                         scale=alt.Scale(range=COLOUR_PALETTE)),
         tooltip=[alt.Tooltip('keyword:N', title='Keyword'),
                  alt.Tooltip('avg_sentiment:Q', title='Average Sentiment'),
-                 alt.Tooltip('date_and_hour:T', title='Date')]
+                 alt.Tooltip('6_hour_block:T', title='6-hour time block')]
     ).properties(width=800, height=400).configure_title(fontSize=24).interactive()
 
     return chart
@@ -992,19 +992,29 @@ def main() -> None:
             st.markdown(
                 '<hr style="width: 100%; height: 2px; color: #291f1e; background-color: #291f1e; margin-top:0;"/>', unsafe_allow_html=True)
 
+            # Organise data for different visualisations
             combined_data = main_combine()
-            print(combined_data)
             filtered_data_list = filter_by_keyword(
                 selected_keywords, combined_data)
-
             filtered_data = pd.concat(filtered_data_list)
             data_12 = get_percentage_change_mentions_sentiment(
                 existing_keywords, combined_data)
+            filtered_data['date_and_hour'] = pd.to_datetime(
+                filtered_data['date_and_hour'])
+            filtered_data['6_hour_block'] = filtered_data['date_and_hour'].dt.floor(
+                '6H')
+            grouped_df = filtered_data.groupby(['keywords_id', '6_hour_block'], as_index=False).agg({
+                'total_mentions': 'mean',
+                'avg_sentiment': 'mean'
+            })
+            grouped_df['total_mentions'] = grouped_df['total_mentions'].round(
+                2)
+            grouped_df['avg_sentiment'] = grouped_df['avg_sentiment'].round(2)
 
             display_users_page_visuals_layer_1(
-                filtered_data, data_12, selected_keywords, existing_keywords)
+                grouped_df, data_12, selected_keywords, existing_keywords)
             display_users_page_visuals_layer_2(
-                filtered_data, data_12, selected_keywords, existing_keywords)
+                grouped_df, data_12, selected_keywords, existing_keywords)
             display_user_page_visuals_layer_3(
                 filtered_data, data_12, selected_keywords, existing_keywords)
             display_user_page_visuals_networks(selected_keywords, cursor)
