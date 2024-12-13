@@ -78,7 +78,7 @@ resource "aws_ecs_task_definition" "c14_trendgineers_dashboard" {
   container_definitions = jsonencode([
     {
       name        = "c14-trendgineers-dashboard" 
-      image       = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-dashboard-ecr:latest" # change to our dashboard image
+      image       = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-dashboard-ecr:latest" 
       cpu         = 256
       memory      = 512
       essential   = true
@@ -91,7 +91,12 @@ resource "aws_ecs_task_definition" "c14_trendgineers_dashboard" {
         { name = "DB_NAME", value = var.DB_NAME },
         { name = "DB_PASSWORD", value = var.DB_PASSWORD },
         { name = "AWS_ACCESS_KEY_ID", value = var.ACCESS_KEY_ID },
-        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY }
+        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY },
+        { name = "S3_BUCKET_NAME", value = var.S3_BUCKET_NAME },
+        { name = "S3_FILE_NAME", value = var.S3_FILE_NAME },
+        { name = "S3_FOLDER_NAME", value = var.S3_FOLDER_NAME},
+        { name = "S3_OBJECT_PREFIX", value = var.S3_OBJECT_PREFIX },
+        { name = "API_ENDPOINT", value = var.API_ENDPOINT}
       ]
 
       logConfiguration = {
@@ -119,6 +124,13 @@ resource "aws_security_group" "dashboard_ecs_service_sg" {
 
   lifecycle {
     prevent_destroy = false
+  }
+
+  ingress {
+    from_port   = 8501
+    to_port     = 8501
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   # Egress rule for S3 (HTTPS)
