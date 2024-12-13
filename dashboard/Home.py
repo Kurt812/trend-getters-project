@@ -2,8 +2,9 @@
 
 # pylint: disable=line-too-long
 from os import environ as ENV
+import datetime
+from datetime import timedelta
 from flask import cli
-from datetime import datetime, timedelta
 import pandas as pd
 import altair as alt
 from dotenv import load_dotenv
@@ -13,10 +14,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import cursor
 from email_validator import validate_email, EmailNotValidError
-from streamlit_agraph import agraph, Node, Edge, Config
 
 
-from queries import (get_related_words, get_most_negative_word,
+from queries import (get_most_negative_word,
                      get_most_positive_word, get_most_mentioned_word)
 from combined_data import main_combine
 from predict_mentions import main_predict
@@ -65,34 +65,6 @@ def fetch_keyword_id(keyword: str) -> list:
     query = "SELECT keywords_id FROM keywords WHERE keyword = %s;"
     result = execute_query(query, (keyword,), fetch_one=True)
     return result
-
-
-def subscribe_to_keyword(user_id: int, keywords_id: int, subscription_status: bool,
-                         notification_threshold: int) -> None:
-    """Subscribe a user to a keyword with a given threshold,
-    inserting if not exists and updating if exists"""
-    check_query = """
-        SELECT 1
-        FROM subscription
-        WHERE user_id = %s AND keywords_id = %s;
-    """
-    result = execute_query(check_query, (user_id, keywords_id), True)
-
-    if result:
-        update_query = """
-            UPDATE subscription
-            SET subscription_status = %s, notification_threshold = %s
-            WHERE user_id = %s AND keywords_id = %s;
-        """
-        execute_query(update_query, (subscription_status,
-                      notification_threshold, user_id, keywords_id))
-    else:
-        insert_query = """
-            INSERT INTO subscription (user_id, keywords_id, subscription_status, notification_threshold)
-            VALUES (%s, %s, %s, %s);
-        """
-        execute_query(insert_query, (user_id, keywords_id,
-                      subscription_status, notification_threshold))
 
 
 def execute_query(query: str, params: tuple = None, fetch_one: bool = False) -> dict:
@@ -150,6 +122,7 @@ def submit_topic(data: dict) -> None:
         response = requests.post(API_ENDPOINT, json=data, timeout=1000)
         if response.status_code == 200:
             st.success("✅ Topic submitted successfully!")
+            st.session_state.clicked_nodes.clear()
         else:
             st.error(f"""Error: {response.json().get(
                 'message', 'Unknown error')}""")
@@ -249,11 +222,15 @@ def display_welcome_message() -> None:
 
 def topic_entry_form() -> str:
     """Displays the form for entering a new topic"""
-    st.subheader("Enter New Topic")
     with st.form("topic_form"):
-        new_topic = st.text_input("Enter the topic or keyword:")
+        new_topic = st.text_input("**Enter a Trend:**")
         submit_topic_button = st.form_submit_button("Add Topic")
         if submit_topic_button:
+            if 'clicked_nodes' not in st.session_state:
+                st.session_state.clicked_nodes = []
+            else:
+                st.session_state.clicked_nodes.clear()
+
             if new_topic.strip():
                 topic_data = {"topic_name": new_topic.strip()}
                 submit_topic(topic_data)
@@ -269,68 +246,17 @@ def display_keywords(existing_keywords: list, new_topic: str) -> list:
     return existing_keywords
 
 
-def subscription_form(existing_keywords: list) -> None:
-    """Displays the form for subscribing to keywords"""
-    st.subheader("Subscribe to Keywords")
-
-    if existing_keywords:
-        with st.form("subscription_form"):
-            selected_keyword = st.selectbox(
-                "Choose a keyword to subscribe:", existing_keywords
-            )
-            subscription_status = st.selectbox(
-                "Subscription Status:", ["disabled", "enabled"]
-            ) == "enabled"
-            subscription_threshold = st.number_input(
-                "Set notification threshold:", min_value=0, value=0
-            )
-            subscribe_button = st.form_submit_button("Subscribe")
-            if subscribe_button:
-                process_subscription(
-                    selected_keyword, subscription_status, subscription_threshold
-                )
-    else:
-        st.info("No keywords available. Add a topic to create keywords.")
-
-
-def process_subscription(selected_keyword: str, subscription_status: bool,
-                         subscription_threshold: int) -> None:
-    """Processes the subscription to a selected keyword"""
-    keyword_id = fetch_keyword_id(selected_keyword)["keywords_id"]
-    if not subscription_status:
-        subscription_threshold = None
-    if selected_keyword.strip():
-        if selected_keyword and subscription_status:
-            subscribe_to_keyword(
-                st.session_state["user_id"]["user_id"],
-                keyword_id,
-                subscription_status,
-                subscription_threshold
-            )
-            st.success(
-                f"""You will be notified if the mentions count over the last hour
-                for '{selected_keyword}' has risen or fallen by {subscription_threshold}."""
-            )
-        else:
-            st.success(f"""You have added {selected_keyword} to your list of topics.
-                       You will *not* receive notifications""")
-    else:
-        st.warning("Please select a valid keyword.")
-
-
 def topic_and_subscription_ui() -> None:
     """Main UI function for topic entry and keyword subscription"""
     display_welcome_message()
 
-    with st.sidebar:
-        st.header("Topic Management")
-        new_topic = topic_entry_form()
-        existing_keywords = fetch_user_keywords(
-            st.session_state["user_id"]["user_id"]
-        )
-        existing_keywords = display_keywords(existing_keywords, new_topic)
-        subscription_form(existing_keywords)
-        return existing_keywords
+    st.session_state["new_topic"] = topic_entry_form()
+    existing_keywords = fetch_user_keywords(
+        st.session_state["user_id"]["user_id"]
+    )
+    existing_keywords = display_keywords(
+        existing_keywords, st.session_state["new_topic"])
+    return existing_keywords
 
 
 def display_center_message() -> None:
@@ -419,7 +345,7 @@ def display_keyword_insights(keyword: str, archival_data: pd.DataFrame, data_upt
         sorted_data = keyword_archival_data.sort_values(
             by=['date_and_hour'], ascending=False)
         first_total_mentions = sorted_data['total_mentions'].iloc[0]
-        next_hour = round_up_to_next_hour(datetime.now())
+        next_hour = round_up_to_next_hour(datetime.datetime.now())
         st.metric(
             label=f'Predicted Mentions for {next_hour}',
             value=prediction,
@@ -465,7 +391,7 @@ def display_user_page_visuals_layer_3(archival_data: pd.DataFrame, data_upto_12h
                 sorted_data = keyword_archival_data.sort_values(
                     by=['date_and_hour'], ascending=False)
                 first_total_mentions = sorted_data['total_mentions'].iloc[0]
-                next_hour = round_up_to_next_hour(datetime.now())
+                next_hour = round_up_to_next_hour(datetime.datetime.now())
                 st.metric(
                     label=f'Predicted Mentions for {next_hour}',
                     value=prediction,
@@ -494,7 +420,7 @@ def display_user_page_visuals_layer_3(archival_data: pd.DataFrame, data_upto_12h
                 sorted_data = keyword_archival_data.sort_values(
                     by=['date_and_hour'], ascending=False)
                 first_total_mentions = sorted_data['total_mentions'].iloc[0]
-                next_hour = round_up_to_next_hour(datetime.now())
+                next_hour = round_up_to_next_hour(datetime.datetime.now())
                 st.metric(
                     label=f'Predicted Mentions for {next_hour}',
                     value=prediction,
@@ -523,7 +449,7 @@ def display_user_page_visuals_layer_3(archival_data: pd.DataFrame, data_upto_12h
                 sorted_data = keyword_archival_data.sort_values(
                     by=['date_and_hour'], ascending=False)
                 first_total_mentions = sorted_data['total_mentions'].iloc[0]
-                next_hour = round_up_to_next_hour(datetime.now())
+                next_hour = round_up_to_next_hour(datetime.datetime.now())
                 st.metric(
                     label=f'Predicted Mentions for {next_hour}',
                     value=prediction,
@@ -547,105 +473,6 @@ def get_metric_columns(keyword: list, data_upto_12hrs: pd.DataFrame, archival_da
     next_hour = round_up_to_next_hour(datetime.now())
     st.metric(label=f'Predicted Mentions for {next_hour}', value=prediction, delta=f'{(
         prediction-first_total_mentions)} mentions')
-
-
-def network_graph(keyword: str, cursor: cursor) -> agraph:
-    """Make a network graph for all the related terms of a given keyword"""
-    nodes = []
-    edges = []
-    related_terms = {}
-
-    result = get_related_words(keyword, cursor)
-    related_terms[keyword] = [row.get('related_term') for row in result]
-
-    added_node_ids = set()
-
-    if keyword not in added_node_ids:
-        nodes.append(Node(
-            id=keyword,
-            label=keyword,
-            size=30,
-            shape="circularImage",
-            image="https://color-hex.org/colors/a3333d.png"
-        ))
-        added_node_ids.add(keyword)
-
-    for idx, related_word in enumerate(related_terms[keyword]):
-        if related_word not in added_node_ids:
-            nodes.append(Node(
-                id=related_word,
-                label=related_word,
-                size=30,
-                shape="circularImage",
-                image=COLOUR_IMAGES[idx % 2]
-            ))
-            added_node_ids.add(related_word)
-
-        edges.append(Edge(
-            source=keyword,
-            label='',
-            target=related_word
-        ))
-
-    config = Config(
-        width=750,
-        height=600,
-        directed=True,
-        physics=True,
-        hierarchical=False,
-    )
-
-    clicked_node = agraph(nodes=nodes, edges=edges, config=config)
-    return clicked_node
-
-
-def getting_new_related_terms(data: dict) -> None:
-    """Submit topic details to the API"""
-    try:
-        response = requests.post(API_ENDPOINT, json=data, timeout=1000)
-        if response.status_code == 200:
-            st.success("✅ Topic submitted successfully!")
-
-        else:
-            st.error(f"""Error: {response.json().get(
-                'message', 'Unknown error')}""")
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to connect to the API. Error: {e}")
-
-
-def display_user_page_visuals_networks(selected_keywords: list, cursor):
-    """Display network graphs if only one or two keywords are present."""
-    if len(selected_keywords) == 1:
-        text, middle, _ = st.columns([1, 5, 1])
-        with text:
-            st.markdown(
-                '<p style="font-size:24px;">Explore the related terms:</p>', unsafe_allow_html=True)
-
-        with middle:
-            clicked_node = network_graph(selected_keywords[0], cursor)
-            if clicked_node:
-                if 'clicked_nodes' not in st.session_state:
-                    st.session_state.clicked_nodes = []
-
-                st.session_state.clicked_nodes.append(clicked_node)
-
-                most_recent_clicked_node = st.session_state.get(
-                    'clicked_nodes', [])[-1]
-                st.write(most_recent_clicked_node)
-
-    elif len(selected_keywords) == 2:
-        st.markdown(
-            '<p style="font-size:24px;">Explore the related terms:</p>', unsafe_allow_html=True)
-
-        graph1, _, graph2 = st.columns([7, 1, 7])
-        with graph1:
-            clicked_node1 = network_graph(selected_keywords[0], cursor)
-            if clicked_node1:
-                st.write(f"From graph 1, you clicked on: {clicked_node1[0]}")
-        with graph2:
-            clicked_node2 = network_graph(selected_keywords[1], cursor)
-            if clicked_node2:
-                st.write(f"From graph 2, you clicked on: {clicked_node2[0]}")
 
 
 def display_new_user_stats(cursor: cursor) -> None:
@@ -716,13 +543,20 @@ def get_percentage_change_mentions_sentiment(keywords: list, data: pd.DataFrame)
 
 def get_keyword_filter(existing_keywords: list, key: str = "keyword_filter") -> list:
     """Create a multiselect filter based on existing keywords."""
-    return st.multiselect(
+    selected_keywords = st.multiselect(
         'Choose keyword(s) to explore...',
         options=existing_keywords,
         default=existing_keywords[-3:],
         key=key,
         max_selections=5
     )
+    if 'clicked_nodes' not in st.session_state:
+        st.session_state.clicked_nodes = []
+    if not selected_keywords:
+        st.session_state.clicked_nodes.clear()
+    if len(selected_keywords) == 1:
+        st.session_state.clicked_nodes.clear()
+    return selected_keywords
 
 
 def filter_by_keyword(selected_keywords: list, data: pd.DataFrame) -> list:
@@ -894,6 +728,7 @@ def main() -> None:
             display_new_user_stats(cursor)
         else:
             selected_keywords = get_keyword_filter(existing_keywords)
+            st.session_state['selected_keywords'] = selected_keywords
             st.markdown(
                 '<hr style="width: 100%; height: 2px; color: #291f1e; background-color: #291f1e; margin-top:0;"/>', unsafe_allow_html=True)
 
@@ -922,7 +757,6 @@ def main() -> None:
                 grouped_df, data_12, selected_keywords, existing_keywords)
             display_user_page_visuals_layer_3(
                 filtered_data, data_12, selected_keywords, existing_keywords)
-            display_user_page_visuals_networks(selected_keywords, cursor)
 
 
 if __name__ == "__main__":
