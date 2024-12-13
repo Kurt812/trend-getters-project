@@ -26,7 +26,7 @@ pip3 install -r requirements.txt
 ```
 
 ## Files Explained 🗂️
-- **`Dockerfile`**: this docker file creates an image along with the required dependencies and files for the `api.py` file that can be accessed vi*a port 5000.
+- **`Dockerfile`**: this docker file creates an image along with the required dependencies and files for the `api.py` file that can be accessed via port 5000.
 - **`api.py`**: this Python script creates a Flask web application with an 'POST' endpoint for the creation of new topics.
 - **`extract.py`**: this Python script connects to the BlueSky Firehose and extracts data relevant to user-defined topics. Data is also extracted from GoogleTrends to a combined pandas dataframe. 
 - **`connect.sh`**: this is a bash script written to establish a connection with the PostgreSQL database using environment variables loaded from a `.env` file.
@@ -45,7 +45,7 @@ Before running the script, you need to set up your AWS credentials. Create a new
 
 | Variable         | Description                                      |
 |------------------|--------------------------------------------------|
-| ACCESS_KEY_ID          | 	The AWS access key ID for authenticating API requests.    |
+| ACCESS_KEY_ID    | The AWS access key ID for authenticating API requests. |
 | SECRET_ACCESS_KEY          | The AWS secret access key associated with the access key ID.  |
 | S3_BUCKET_NAME      | The name of the S3 bucket where the files are stored.          |
 | S3_OBJECT_PREFIX          | 	The prefix used enter sub-directories in the main S3 bucket.                 |
@@ -53,6 +53,6 @@ Before running the script, you need to set up your AWS credentials. Create a new
 | DB_HOST          | The hostname or IP address of the database.      |
 | DB_PORT          | The port number for the database connection.     |
 | DB_PASSWORD      | The password for the database user.              |
-| DB_USERNAME          | The username for the database.                   |
+| DB_USERNAME      | The username for the database.                   |
 | DB_NAME          | The name of the database.                        |
 | SCHEMA_NAME      | The name of the database schema.                 |
