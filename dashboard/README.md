@@ -41,6 +41,9 @@ Before running the script, you need to set up your AWS credentials. Create a new
 | DB_USERNAME      | The username for the database.                   |
 | DB_NAME          | The name of the database.                        |
 | SCHEMA_NAME      | The name of the database schema.                 |
+| S3_BUCKET_NAME      | The name of the S3 bucket where the files are stored.          |
+| S3_FOLDER_NAME      | The name of the folder in the S3 bucket where the files are stored.          |
+| S3_FILE_NAME          | 	The name of the files which are stored and accessed   |
 | VPC_ID           | The identifier for the Virtual Private Cloud (VPC) associated with the database. |
 
 
