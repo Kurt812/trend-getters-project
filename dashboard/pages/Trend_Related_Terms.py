@@ -1,4 +1,4 @@
-""""dfsdf"""
+""""Related terms page on the dashboard"""
 
 from os import environ as ENV
 import pandas as pd
@@ -167,15 +167,9 @@ def display_user_page_visuals_networks(selected_keywords: list, cursor: curs):
         st.write("Explore the related terms:")
         graph1, _, graph2 = st.columns([7, 1, 7])
         with graph1:
-            clicked_node1 = network_graph(selected_keywords[0], cursor)
-            # if clicked_node1:
-            # st.session_state.clicked_nodes.append(clicked_node1)
-            # st.rerun()
+            network_graph(selected_keywords[0], cursor)
         with graph2:
-            clicked_node2 = network_graph(selected_keywords[1], cursor)
-            # if clicked_node2:
-            # st.session_state.clicked_nodes.append(clicked_node2)
-            # st.rerun()
+            network_graph(selected_keywords[1], cursor)
 
 
 def display_user_page_visuals_networks_2(selected_keywords: list, cursor: curs) -> None:
@@ -197,15 +191,9 @@ def display_user_page_visuals_networks_2(selected_keywords: list, cursor: curs) 
         st.write("Explore the related terms:")
         graph1, _, graph2 = st.columns([7, 1, 7])
         with graph1:
-            clicked_node1 = network_graph(selected_keywords[0], cursor)
-            # if clicked_node1:
-            # st.session_state.clicked_nodes.append(clicked_node1)
-            # st.rerun()
+            network_graph(selected_keywords[0], cursor)
         with graph2:
-            clicked_node2 = network_graph(selected_keywords[1], cursor)
-            # if clicked_node2:
-            # st.session_state.clicked_nodes.append(clicked_node2)
-            # st.rerun()
+            network_graph(selected_keywords[1], cursor)
 
 
 if __name__ == "__main__":
