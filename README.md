@@ -111,10 +111,10 @@ This directory contains all code relating to the dashboard that users can use to
 This directory contains all the images found in this repository including the Entity Relationship Diagram (ERD) and the architecture diagram.
 
 - **[notifications](https://github.com/Kurt812/trend-getters-project/tree/main/notifications)**
-This directory ...
+This directory contains all the code relating to collecting subscription data and sending notifications.
 
 - **[notifications-pipeline](https://github.com/Kurt812/trend-getters-project/tree/main/notifications-pipeline)**
-This directory ...
+This directory contains all the code relating to updating the data for the keywords that are subscribed to before sending the notifications.
    
 - **[pipeline](https://github.com/Kurt812/trend-getters-project/tree/main/pipeline)**
 This directory implements a full Extract Transform Load (ETL) pipeline and contains the code needed to extract text related to user-defined keywords and topics, process and upload the data into an S3 and RDS instance.
