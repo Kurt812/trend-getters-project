@@ -1,13 +1,6 @@
-data "aws_ecs_cluster" "cluster" {
-  cluster_name = "c14-ecs-cluster"
-}
 
-data "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecsTaskExecutionRole"
-}
-
-resource "aws_iam_role" "pipeline_ecs_service_role" {
-  name               = "c14-trendgineers-pipeline-ecs-service-role"
+resource "aws_iam_role" "dashboard_ecs_service_role" {
+  name               = "c14-trendgineers-dashboard-ecs-service-role"
   lifecycle {
     prevent_destroy = false
   }
@@ -25,8 +18,8 @@ resource "aws_iam_role" "pipeline_ecs_service_role" {
   })
 }
 
-resource "aws_iam_policy" "pipeline_ecs_service_rds_policy" {
-  name        = "c14-trendgineers-pipeline-ecs-service-rds-policy"
+resource "aws_iam_policy" "dashboard_ecs_service_rds_policy" {
+  name        = "c14-trendgineers-dashboard-ecs-service-rds-policy"
   description = "Grant ECS service permissions to interact with the RDS database for reading and writing data."
   lifecycle {
     prevent_destroy = false
@@ -44,7 +37,6 @@ resource "aws_iam_policy" "pipeline_ecs_service_rds_policy" {
             "arn:aws:rds:eu-west-2:129033205317:db:c14-trend-getter-db"
         ]
       },
-      # Allow ECS tasks to read from the specified S3 bucket
       {
         Effect   : "Allow",
         Action   : [
@@ -60,32 +52,32 @@ resource "aws_iam_policy" "pipeline_ecs_service_rds_policy" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "pipeline_ecs_service_s3_policy_attachment" {
-  role       = aws_iam_role.pipeline_ecs_service_role.name
-  policy_arn = aws_iam_policy.pipeline_ecs_service_rds_policy.arn
+resource "aws_iam_role_policy_attachment" "dashboard_ecs_service_s3_policy_attachment" {
+  role       = aws_iam_role.dashboard_ecs_service_role.name
+  policy_arn = aws_iam_policy.dashboard_ecs_service_rds_policy.arn
 }
 
-resource "aws_cloudwatch_log_group" "pipeline_log_group" {
-  name              = "/ecs/c14-trendgineers-pipeline"
+resource "aws_cloudwatch_log_group" "dashboard_log_group" {
+  name              = "/ecs/c14-trendgineers-dashboard"
   lifecycle {
     prevent_destroy = false
   }
   retention_in_days = 7
 }
 
-resource "aws_ecs_task_definition" "c14_trendgineers_pipeline" {
-  family                   = "c14-trendgineers-pipeline"
+resource "aws_ecs_task_definition" "c14_trendgineers_dashboard" {
+  family                   = "c14-trendgineers-dashboard"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "1024"
-  task_role_arn            = aws_iam_role.pipeline_ecs_service_role.arn # keep
+  task_role_arn            = aws_iam_role.dashboard_ecs_service_role.arn 
   execution_role_arn       = data.aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
     {
-      name        = "c14-trendgineers-pipeline" 
-      image       = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-pipeline-ecr:latest" # change to our pipeline image
+      name        = "c14-trendgineers-dashboard" 
+      image       = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c14-trendgineers-dashboard-ecr:latest" 
       cpu         = 256
       memory      = 512
       essential   = true
@@ -98,14 +90,19 @@ resource "aws_ecs_task_definition" "c14_trendgineers_pipeline" {
         { name = "DB_NAME", value = var.DB_NAME },
         { name = "DB_PASSWORD", value = var.DB_PASSWORD },
         { name = "AWS_ACCESS_KEY_ID", value = var.ACCESS_KEY_ID },
-        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY }
+        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY },
+        { name = "S3_BUCKET_NAME", value = var.S3_BUCKET_NAME },
+        { name = "S3_FILE_NAME", value = var.S3_FILE_NAME },
+        { name = "S3_FOLDER_NAME", value = var.S3_FOLDER_NAME},
+        { name = "S3_OBJECT_PREFIX", value = var.S3_OBJECT_PREFIX },
+        { name = "API_ENDPOINT", value = var.API_ENDPOINT}
       ]
 
       logConfiguration = {
         logDriver = "awslogs"
         options = {
           awslogs-create-group  = "true"
-          awslogs-group         = "/ecs/c14-trendgineers-pipeline"
+          awslogs-group         = "/ecs/c14-trendgineers-dashboard"
           awslogs-region        = "eu-west-2"
           awslogs-stream-prefix = "ecs"
         }
@@ -119,8 +116,8 @@ resource "aws_ecs_task_definition" "c14_trendgineers_pipeline" {
   }
 }
 
-resource "aws_security_group" "pipeline_ecs_service_sg" {
-  name        = "c14-trendgineers-pipeline-sg"
+resource "aws_security_group" "dashboard_ecs_service_sg" {
+  name        = "c14-trendgineers-dashboard-sg"
   description = "Allow ECS tasks to read data from S3 and upload to RDS"
   vpc_id      = var.VPC_ID
 
@@ -128,7 +125,13 @@ resource "aws_security_group" "pipeline_ecs_service_sg" {
     prevent_destroy = false
   }
 
-  # Egress rule for S3 (HTTPS)
+  ingress {
+    from_port   = 8501
+    to_port     = 8501
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] 
+  }
+
   egress {
     from_port   = 443
     to_port     = 443
@@ -136,31 +139,30 @@ resource "aws_security_group" "pipeline_ecs_service_sg" {
     cidr_blocks = ["0.0.0.0/0"] 
   }
 
-  # Egress rule for RDS
   egress {
-    from_port   = 5432 # Replace with your RDS port if different
+    from_port   = 5432 
     to_port     = 5432
     protocol    = "tcp"
     security_groups = [aws_security_group.rds_sg.id] 
   }
 
   tags = {
-    Name = "Pipeline ECS Service SG"
+    Name = "dashboard ECS Service SG"
   }
 }
 
-# resource "aws_ecs_service" "pipeline_service" {
-#   name            = "c14-trendgineers-pipeline-service"
-#   cluster         = data.aws_ecs_cluster.cluster.id
-#   task_definition = aws_ecs_task_definition.c14_trendgineers_pipeline.arn
-#   desired_count   = 1
-#   launch_type     = "FARGATE"
+resource "aws_ecs_service" "dashboard_service" {
+  name            = "c14-trendgineers-dashboard-service"
+  cluster         = data.aws_ecs_cluster.cluster.id
+  task_definition = aws_ecs_task_definition.c14_trendgineers_dashboard.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
 
-#   network_configuration {
-#     subnets         = ["subnet-0497831b67192adc2",
-#                 "subnet-0acda1bd2efbf3922",
-#                 "subnet-0465f224c7432a02e"] 
-#     security_groups = [aws_security_group.pipeline_ecs_service_sg.id]
-#     assign_public_ip = true
-#   }
-# }
+  network_configuration {
+    subnets         = ["subnet-0497831b67192adc2",
+                "subnet-0acda1bd2efbf3922",
+                "subnet-0465f224c7432a02e"] 
+    security_groups = [aws_security_group.dashboard_ecs_service_sg.id]
+    assign_public_ip = true
+  }
+}

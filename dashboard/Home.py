@@ -550,7 +550,8 @@ def get_keyword_filter(existing_keywords: list, key: str = "keyword_filter") -> 
         key=key,
         max_selections=5
     )
-
+    if 'clicked_nodes' not in st.session_state:
+        st.session_state.clicked_nodes = []
     if not selected_keywords:
         st.session_state.clicked_nodes.clear()
     if len(selected_keywords) == 1:
