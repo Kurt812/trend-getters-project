@@ -7,7 +7,11 @@ vaderSentiment
 atproto
 certifi
 boto3
+aioboto3
 freezegun
 flask
 streamlit
 pytrends
+sqlalchemy
+email_validator
+streamlit_agraph

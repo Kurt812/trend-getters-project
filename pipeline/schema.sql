@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     user_id INT GENERATED ALWAYS AS IDENTITY,
     first_name VARCHAR(30) NOT NULL,
     last_name VARCHAR(30) NOT NULL,
-    phone_number VARCHAR(20) UNIQUE,
+    email VARCHAR(255) UNIQUE,
     PRIMARY KEY (user_id)
 );
 
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS keyword_recordings (
     keyword_recordings_id BIGINT GENERATED ALWAYS AS IDENTITY,
     keywords_id BIGINT,
     total_mentions SMALLINT,
-    avg_sentiment SMALLINT,
-    hour_of_day SMALLINT,
+    avg_sentiment FLOAT,
+    date_and_hour TIMESTAMP,
     PRIMARY KEY (keyword_recordings_id),
     FOREIGN KEY (keywords_id) REFERENCES keywords(keywords_id)
 );
@@ -65,11 +65,3 @@ CREATE TABLE IF NOT EXISTS subscription (
     FOREIGN KEY (user_id) REFERENCES "user"(user_id),
     FOREIGN KEY (keywords_id) REFERENCES keywords(keywords_id)
 );
-
-
-
-
-
-
-
-

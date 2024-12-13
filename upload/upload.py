@@ -11,7 +11,7 @@ import boto3
 from boto3 import client
 from dotenv import load_dotenv
 from psycopg2.extensions import connection
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from atproto import CAR, models
 from atproto_client.models.utils import get_or_create
 from atproto_firehose import FirehoseSubscribeReposClient, parse_subscribe_repos_message
@@ -28,6 +28,7 @@ logging.basicConfig(
     ]
 )
 
+
 class JSONExtra(json.JSONEncoder):
     """Serializes raw objects (including CID-Content Identifier) as strings."""
 
@@ -40,9 +41,27 @@ class JSONExtra(json.JSONEncoder):
 
 def s3_connection() -> connection:
     """Connects to an S3"""
-    s3 = client("s3", aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
-    return s3
+    try:
+        aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        if not aws_access_key_id or not aws_secret_access_key:
+            logging.error("Missing required AWS credentials in .env file.")
+            raise ValueError("Missing AWS credentials.")
+
+        s3 = client("s3", aws_access_key_id,
+                    aws_secret_access_key)
+        return s3
+
+    except ClientError as e:
+        logging.error("An AWS ClientError occurred: %s", e.response['Error']['Message'])
+        raise
+    except ValueError as e:
+        logging.error("Configuration error: %s", str(e))
+        raise
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while connecting to S3: %s", e)
+        raise
 
 
 def format_text(text: str) -> str:
@@ -85,6 +104,7 @@ def get_firehose_data(message: bytes) -> None:
                     logging.info('Extracted text: %s', firehose_text)
                     upload_to_s3(firehose_text)
 
+
 def start_firehose_extraction(firehose_client: FirehoseSubscribeReposClient) -> None:
     """Starts the Bluesky firehose extraction"""
     firehose_client.start(lambda message: get_firehose_data(message))
@@ -120,8 +140,15 @@ def upload_to_s3(content: str) -> None:
 
         s3_client.put_object(Bucket=s3_bucket, Key=s3_key, Body=content)
         logging.info("Uploaded to S3: %s", s3_key)
-    except (NoCredentialsError, PartialCredentialsError) as e:
-        logging.error("S3 credentials error: %s", e)
+    except ClientError as e:
+        logging.error("An AWS ClientError occurred: %s", e.response['Error']['Message'])
+        raise
+    except EndpointConnectionError as e:
+        logging.error("Failed to connect to the S3 endpoint: %s", e)
+        raise
+    except Exception as e:
+        logging.error("An unexpected error occurred while uploading to S3: %s", e)
+        raise
 
 
 if __name__ == "__main__":

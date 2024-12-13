@@ -46,6 +46,18 @@ variable "S3_BUCKET_NAME" {
   sensitive = true
 }
 
+variable "S3_FOLDER_NAME" {
+  description = "The S3 folder name"
+  type        = string
+  sensitive = true
+}
+
+variable "S3_FILE_NAME" {
+  description = "The S3 file name"
+  type        = string
+  sensitive = true
+}
+
 variable "S3_OBJECT_PREFIX" {
   description = "The s3 bucket folder"
   type        = string
@@ -58,16 +70,20 @@ variable "db_instance_class" {
   default     = "db.t3.micro"
 }
 
-variable "AWS_ACCESS_KEY_ID" {
+variable "ACCESS_KEY_ID" {
   description = "The AWS access key id"
   type        = string
   sensitive = true
 }
 
-variable "AWS_SECRET_ACCESS_KEY" {
+variable "SECRET_ACCESS_KEY" {
   description = "The AWS secret access key"
   type        = string
   sensitive = true
 }
 
-
+variable "API_ENDPOINT" {
+  description = "The dashboard API endpoint"
+  type        = string
+  sensitive = true
+}

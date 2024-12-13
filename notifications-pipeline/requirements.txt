@@ -1,4 +1,3 @@
-certifi
-boto3
+requests
 python-dotenv
 psycopg2-binary

@@ -82,8 +82,8 @@ resource "aws_ecs_task_definition" "c14_trendgineers_raw_upload" {
         }
       ]
       environment = [
-        { name = "AWS_ACCESS_KEY_ID", value = var.AWS_ACCESS_KEY_ID },
-        { name = "AWS_SECRET_ACCESS_KEY", value = var.AWS_SECRET_ACCESS_KEY }
+        { name = "AWS_ACCESS_KEY_ID", value = var.ACCESS_KEY_ID },
+        { name = "AWS_SECRET_ACCESS_KEY", value = var.SECRET_ACCESS_KEY }
       ]
 
       logConfiguration = {
