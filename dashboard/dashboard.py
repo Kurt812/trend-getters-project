@@ -398,236 +398,141 @@ def round_up_to_next_hour(dt: datetime) -> str:
     return next_hour.strftime("%H:%M")
 
 
+def display_keyword_insights(keyword: str, archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, font_size: int) -> None:
+    """Displays insights for a specific keyword."""
+    st.markdown(
+        f'<p style="font-size:{font_size}px;"><b><i>{
+            keyword.title()}</i></b> Insights:</p>',
+        unsafe_allow_html=True
+    )
+    keyword_id = fetch_keyword_id(keyword).get('keywords_id')
+    keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+    keyword_data = data_upto_12hrs[data_upto_12hrs['keyword'] == keyword]
+
+    _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
+    with left:
+        get_total_mentions_change_metric(keyword_data)
+    with right:
+        get_sentiment_overall_change_metric(keyword_data)
+    with middle:
+        prediction = main_predict(keyword)
+        sorted_data = keyword_archival_data.sort_values(
+            by=['date_and_hour'], ascending=False)
+        first_total_mentions = sorted_data['total_mentions'].iloc[0]
+        next_hour = round_up_to_next_hour(datetime.now())
+        st.metric(
+            label=f'Predicted Mentions for {next_hour}',
+            value=prediction,
+            delta=f'{round((
+                prediction-first_total_mentions), 2)} mentions'
+        )
+
+
 def display_user_page_visuals_layer_3(archival_data: pd.DataFrame, data_upto_12hrs: pd.DataFrame, selected_keywords: list, existing_keywords: list) -> None:
     """Function to display 3rd layer of user visuals including predictions and averages across last 12hrs."""
+
     if len(selected_keywords) == 0:
         last_submitted_keyword = existing_keywords[-1]
-        st.markdown(
-            f'<p style="font-size:24px;"><b><i>{
-                last_submitted_keyword.title()}</i></b> Insights:</p>',
-            unsafe_allow_html=True
-        )
-        keyword_id = fetch_keyword_id(
-            last_submitted_keyword).get('keywords_id')
-        archival_data = archival_data[archival_data.copy()['keywords_id']
-                                      == keyword_id]
+        display_keyword_insights(
+            last_submitted_keyword, archival_data, data_upto_12hrs, font_size=24)
 
-        data = data_upto_12hrs[data_upto_12hrs['keyword']
-                               == last_submitted_keyword]
-        _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
-        with left:
-            get_total_mentions_change_metric(data)
-        with right:
-            get_sentiment_overall_change_metric(data)
-        with middle:
-            prediction = main_predict(last_submitted_keyword)
-            data = archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'] ==
-                                     keyword_id]
-
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            next_hour = round_up_to_next_hour(datetime.now())
-            st.metric(label=f'Predicted Mentions for {next_hour}', value=prediction, delta=f'{(
-                prediction-first_total_mentions)} mentions')
     elif len(selected_keywords) == 1:
-        keyword_id = fetch_keyword_id(
-            selected_keywords[0]).get('keywords_id')
-        st.markdown(
-            f'<p style="font-size:24px;"><b><i>{
-                selected_keywords[0].title()}</i></b> Insights:</p>',
-            unsafe_allow_html=True
-        )
+        display_keyword_insights(
+            selected_keywords[0], archival_data, data_upto_12hrs, font_size=24)
 
-        archival_data = archival_data[archival_data['keywords_id']
-                                      == keyword_id]
-
-        data = data_upto_12hrs[data_upto_12hrs['keyword']
-                               == selected_keywords[0]]
-        _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
-        with left:
-            get_total_mentions_change_metric(data)
-        with right:
-            get_sentiment_overall_change_metric(data)
-        with middle:
-            prediction = main_predict(selected_keywords[0])
-            data = archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'] ==
-                                     keyword_id]
-
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            next_hour = round_up_to_next_hour(datetime.now())
-            st.metric(label=f'Predicted Mentions for {next_hour}', value=prediction, delta=f'{(
-                prediction-first_total_mentions)} mentions')
     elif len(selected_keywords) == 2:
-
-        st.markdown(
-            f'<p style="font-size:24px;"><b><i>{
-                selected_keywords[0].title()}</i></b> Insights:</p>',
-            unsafe_allow_html=True
-        )
-
-        _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
-        keyword_id = fetch_keyword_id(
-            selected_keywords[0]).get('keywords_id')
-
-        word1_archival_data = archival_data[archival_data['keywords_id']
-                                            == keyword_id]
-
-        data = data_upto_12hrs[data_upto_12hrs['keyword']
-                               == selected_keywords[0]]
-        with left:
-            get_total_mentions_change_metric(data)
-        with right:
-            get_sentiment_overall_change_metric(data)
-        with middle:
-            prediction = main_predict(selected_keywords[0])
-            data = word1_archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'] ==
-                                     keyword_id]
-
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            next_hour = round_up_to_next_hour(datetime.now())
-            st.metric(label=f'Predicted Mentions for {next_hour}', value=prediction, delta=f'{(
-                prediction-first_total_mentions)} mentions')
-
-        st.markdown(
-            f'<p style="font-size:24px;"><b><i>{
-                selected_keywords[1].title()}</i></b> Insights:</p>',
-            unsafe_allow_html=True
-        )
-
-        _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
-        new_keyword_id = fetch_keyword_id(
-            selected_keywords[1]).get('keywords_id')
-
-        data = data_upto_12hrs[data_upto_12hrs['keyword']
-                               == selected_keywords[1]]
-        with left:
-            get_total_mentions_change_metric(data)
-        with right:
-            get_sentiment_overall_change_metric(data)
-        with middle:
-            prediction = main_predict(selected_keywords[1])
-
-            data = archival_data.sort_values(
-                by=['date_and_hour'], ascending=False)
-            only_keyword_data = data[data['keywords_id'] ==
-                                     new_keyword_id]
-            first_total_mentions = only_keyword_data['total_mentions'].iloc[0]
-            next_hour = round_up_to_next_hour(datetime.now())
-            st.metric(label=f'Predicted Mentions for {next_hour}', value=prediction, delta=f'{(
-                prediction-first_total_mentions)} mentions')
+        for keyword in selected_keywords:
+            display_keyword_insights(
+                keyword, archival_data, data_upto_12hrs, font_size=24)
 
     elif len(selected_keywords) == 3:
         _, left, _, middle, _, right, _ = st.columns([1, 2, 1, 2, 1, 2, 1])
-        with left:
-            st.markdown(
-                f'<p style="font-size:24px;"><b><i>{
-                    selected_keywords[0].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[0], data_upto_12hrs, archival_data)
-        with middle:
-            st.markdown(
-                f'<p style="font-size:24px;"><b><i>{
-                    selected_keywords[1].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[1], data_upto_12hrs, archival_data)
-        with right:
-            st.markdown(
-                f'<p style="font-size:24px;"><b><i>{
-                    selected_keywords[2].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[2], data_upto_12hrs, archival_data)
+        for i, column in enumerate([left, middle, right]):
+            with column:
+                st.markdown(
+                    f'<p style="font-size:24px;"><b><i>{
+                        selected_keywords[i].title()}</i></b> Insights:</p>',
+                    unsafe_allow_html=True
+                )
+                keyword_id = fetch_keyword_id(
+                    selected_keywords[i]).get('keywords_id')
+                keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+                keyword_data = data_upto_12hrs[data_upto_12hrs['keyword']
+                                               == selected_keywords[i]]
+                get_total_mentions_change_metric(keyword_data)
+                get_sentiment_overall_change_metric(keyword_data)
+                prediction = main_predict(selected_keywords[i])
+                sorted_data = keyword_archival_data.sort_values(
+                    by=['date_and_hour'], ascending=False)
+                first_total_mentions = sorted_data['total_mentions'].iloc[0]
+                next_hour = round_up_to_next_hour(datetime.now())
+                st.metric(
+                    label=f'Predicted Mentions for {next_hour}',
+                    value=prediction,
+                    delta=f'{round((
+                        prediction-first_total_mentions), 2)} mentions'
+                )
+
     elif len(selected_keywords) == 4:
         _, left, _, middle_left, middle_right, _, right, _ = st.columns(
             [0.5, 2, 1, 2, 2, 1, 2, 0.5])
-        with left:
-            st.markdown(
-                f'<p style="font-size:20px;"><b><i>{
-                    selected_keywords[0].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[0], data_upto_12hrs, archival_data)
-        with middle_left:
-            st.markdown(
-                f'<p style="font-size:20px;"><b><i>{
-                    selected_keywords[1].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[1], data_upto_12hrs, archival_data)
-        with middle_right:
-            st.markdown(
-                f'<p style="font-size:20px;"><b><i>{
-                    selected_keywords[2].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[2], data_upto_12hrs, archival_data)
-        with right:
-            st.markdown(
-                f'<p style="font-size:20px;"><b><i>{
-                    selected_keywords[3].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[3], data_upto_12hrs, archival_data)
+        for i, column in enumerate([left, middle_left, middle_right, right]):
+            with column:
+                st.markdown(
+                    f'<p style="font-size:20px;"><b><i>{
+                        selected_keywords[i].title()}</i></b> Insights:</p>',
+                    unsafe_allow_html=True
+                )
+                keyword_id = fetch_keyword_id(
+                    selected_keywords[i]).get('keywords_id')
+                keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+                keyword_data = data_upto_12hrs[data_upto_12hrs['keyword']
+                                               == selected_keywords[i]]
+                get_total_mentions_change_metric(keyword_data)
+                get_sentiment_overall_change_metric(keyword_data)
+                prediction = main_predict(selected_keywords[i])
+                sorted_data = keyword_archival_data.sort_values(
+                    by=['date_and_hour'], ascending=False)
+                first_total_mentions = sorted_data['total_mentions'].iloc[0]
+                next_hour = round_up_to_next_hour(datetime.now())
+                st.metric(
+                    label=f'Predicted Mentions for {next_hour}',
+                    value=prediction,
+                    delta=f'{round((
+                        prediction-first_total_mentions), 2)} mentions'
+                )
+
     else:
         left, middle_left, middle, middle_right, right = st.columns([
-                                                                    1, 1, 1, 1, 1])
-        with left:
-            st.markdown(
-                f'<p style="font-size:18px;"><b><i>{
-                    selected_keywords[0].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[0], data_upto_12hrs, archival_data)
-        with middle_left:
-            st.markdown(
-                f'<p style="font-size:18px;"><b><i>{
-                    selected_keywords[1].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[1], data_upto_12hrs, archival_data)
-        with middle:
-            st.markdown(
-                f'<p style="font-size:18px;"><b><i>{
-                    selected_keywords[2].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[2], data_upto_12hrs, archival_data)
-        with middle_right:
-            st.markdown(
-                f'<p style="font-size:18px;"><b><i>{
-                    selected_keywords[3].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[3], data_upto_12hrs, archival_data)
-        with right:
-            st.markdown(
-                f'<p style="font-size:18px;"><b><i>{
-                    selected_keywords[4].title()}</i></b> Insights:</p>',
-                unsafe_allow_html=True
-            )
-            get_metric_columns(
-                selected_keywords[4], data_upto_12hrs, archival_data)
+            1, 1, 1, 1, 1])
+        for i, column in enumerate([left, middle_left, middle, middle_right, right]):
+            with column:
+                st.markdown(
+                    f'<p style="font-size:18px;"><b><i>{
+                        selected_keywords[i].title()}</i></b> Insights:</p>',
+                    unsafe_allow_html=True
+                )
+                keyword_id = fetch_keyword_id(
+                    selected_keywords[i]).get('keywords_id')
+                keyword_archival_data = archival_data[archival_data['keywords_id'] == keyword_id]
+                keyword_data = data_upto_12hrs[data_upto_12hrs['keyword']
+                                               == selected_keywords[i]]
+                get_total_mentions_change_metric(keyword_data)
+                get_sentiment_overall_change_metric(keyword_data)
+                prediction = main_predict(selected_keywords[i])
+                sorted_data = keyword_archival_data.sort_values(
+                    by=['date_and_hour'], ascending=False)
+                first_total_mentions = sorted_data['total_mentions'].iloc[0]
+                next_hour = round_up_to_next_hour(datetime.now())
+                st.metric(
+                    label=f'Predicted Mentions for {next_hour}',
+                    value=prediction,
+                    delta=f'{round((
+                        prediction-first_total_mentions), 2)} mentions'
+                )
 
 
-def get_metric_columns(keyword: list, data_upto_12hrs: pd.DataFrame, archival_data: pd.DataFrame):
+def get_metric_columns(keyword: list, data_upto_12hrs: pd.DataFrame, archival_data: pd.DataFrame) -> None:
     """Function for creating the metric columns including sentiment over the last 12 hrs and prediction."""
     get_total_mentions_change_metric(data_upto_12hrs)
     get_sentiment_overall_change_metric(data_upto_12hrs)
